@@ -24,8 +24,15 @@ jobs:
       - name: התקנת תלויות
         run: npm install
 
+      - name: הוספת פלטפורמת Android
+        run: npx cap add android
+
       - name: סנכרון Capacitor
         run: npx cap sync android
+
+      - name: הרשאות לגראדל
+        working-directory: android
+        run: chmod +x gradlew
 
       - name: בניית APK
         working-directory: android
@@ -46,13 +53,6 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           name: "שבצ\"ק v${{ github.run_number }}"
-          body: |
-            ## שבצ"ק - גרסה ${{ github.run_number }}
-            
-            ### התקנה
-            1. הורד את קובץ ה-APK
-            2. אפשר "מקורות לא ידועים" בהגדרות הנייד
-            3. התקן את ה-APK
           files: android/app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
