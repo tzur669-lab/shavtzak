@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>שבצ"ק - דוח בקרה</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.rtl.min.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    .report-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.82rem; }
+    .report-table th {
+      background: var(--bg-row-alt);
+      padding: 0.5rem 0.65rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+      text-transform: uppercase;
+      position: sticky; top: 0;
+    }
+    .report-table td {
+      padding: 0.45rem 0.65rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .report-table tr:hover td { filter: brightness(0.97); }
+    .report-table tr:last-child td { border-bottom: none; }
+
+    /* צבע שורה לפי עמדה (עדין) */
+    .row-ok     { }
+    .row-short  { background: #fef9ee !important; }
+    .row-forced-r { background: #fef2f2 !important; }
+    .row-empty-r  { background: #f9fafb !important; color: var(--text-muted); }
+
+    [data-theme="dark"] .row-short   { background: #2a2000 !important; }
+    [data-theme="dark"] .row-forced-r { background: #2a0d0d !important; }
+    [data-theme="dark"] .row-empty-r  { background: var(--bg-row-alt) !important; }
+
+    /* פס צבע עמדה בשורה */
+    .row-post-bar {
+      width: 3px;
+      border-radius: 2px;
+      display: inline-block;
+      height: 16px;
+      vertical-align: middle;
+      margin-left: 5px;
+    }
+
+    /* שם מחלקה בצבע */
+    .group-name-colored { font-weight: 600; }
+
+    .export-wrap { display: none; }
+  </style>
+</head>
+<body class="page-enter">
+
+<header class="page-header">
+  <div>
+    <div class="page-title">📊 דוח בקרת מנוחה</div>
+    <div class="page-subtitle">בדיקת עומס וזמני מנוחה</div>
+  </div>
+  <div style="display:flex;gap:0.4rem;">
+    <button class="btn btn-ghost btn-sm" onclick="exportImage()">📷 ייצא</button>
+  </div>
+</header>
+
+<div class="page-wrap">
+
+  <!-- פילטרים -->
+  <div class="card" style="margin-bottom:0.75rem;">
+    <div class="card-title">🔍 טווח דוח</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.5rem;">
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">התחלה</label>
+        <input type="datetime-local" id="startTime" class="form-input">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">סיום</label>
+        <input type="datetime-local" id="endTime" class="form-input">
+      </div>
+    </div>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" onclick="runReport()">🔄 הפק דוח</button>
+      <button class="chip" onclick="setQuick(24)">24ש'</button>
+      <button class="chip" onclick="setQuick(48)">48ש'</button>
+      <button class="chip" onclick="setQuick(168)">שבוע</button>
+    </div>
+  </div>
+
+  <!-- סיכום -->
+  <div id="summaryRow" style="display:none;margin-bottom:0.75rem;"></div>
+
+  <!-- סינון שורות -->
+  <div class="filter-chips" style="padding:0 0 0.6rem;" id="reportFilter" style="display:none;">
+    <button class="chip active" onclick="setRowFilter('all',this)">הכל</button>
+    <button class="chip" onclick="setRowFilter('short',this)">מנוחה קצרה</button>
+    <button class="chip" onclick="setRowFilter('forced',this)">כפויות</button>
+    <button class="chip" onclick="setRowFilter('empty',this)">ריקות</button>
+    <button class="chip" onclick="setRowFilter('ok',this)">תקין</button>
+  </div>
+
+  <!-- טבלה -->
+  <div id="reportWrap" style="overflow-x:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);">
+    <div class="empty-state">
+      <div class="empty-icon">📊</div>
+      <div class="empty-title">בחר טווח זמן והפק דוח</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- אזור ייצוא (נסתר) -->
+<div class="export-wrap" id="exportWrap"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script type="module">
+import { getShiftsInRange, getSoldiers, getPosts, getGroups, getSettings } from './js/firebase.js';
+import { initPage, showToast, formatTime, formatDate, formatDayName, formatMinutes, toLocalInputValue, fromLocalInputValue } from './js/ui.js';
+
+initPage();
+
+let reportData = null;
+let rowFilter  = 'all';
+
+function setDefaultTimes() {
+  const now = new Date(); now.setMinutes(0,0,0);
+  const end = new Date(now.getTime() + 48*3600000);
+  document.getElementById('startTime').value = toLocalInputValue(now.toISOString());
+  document.getElementById('endTime').value   = toLocalInputValue(end.toISOString());
+}
+
+window.setQuick = h => {
+  const now = new Date(); now.setMinutes(0,0,0);
+  const end = new Date(now.getTime() + h*3600000);
+  document.getElementById('startTime').value = toLocalInputValue(now.toISOString());
+  document.getElementById('endTime').value   = toLocalInputValue(end.toISOString());
+};
+
+setDefaultTimes();
+
+window.setRowFilter = (f, btn) => {
+  rowFilter = f;
+  document.querySelectorAll('#reportFilter .chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  if (reportData) renderReport(reportData);
+};
+
+window.runReport = async function() {
+  const startVal = document.getElementById('startTime').value;
+  const endVal   = document.getElementById('endTime').value;
+  if (!startVal || !endVal) { showToast('נא לבחור טווח', 'warning'); return; }
+
+  document.getElementById('reportWrap').innerHTML = '<div class="empty-state"><div class="spinner" style="margin:auto;"></div><div style="margin-top:0.75rem;font-size:0.82rem;color:var(--text-muted);">טוען...</div></div>';
+
+  const startISO = fromLocalInputValue(startVal);
+  const endISO   = fromLocalInputValue(endVal);
+
+  const [shifts, soldiers, posts, groups, settings] = await Promise.all([
+    getShiftsInRange(startISO, endISO), getSoldiers(), getPosts(), getGroups(), getSettings()
+  ]);
+
+  reportData = { shifts, soldiers, posts, groups, settings, startISO, endISO };
+  document.getElementById('reportFilter').style.display = 'flex';
+  renderReport(reportData);
+};
+
+function renderReport({ shifts, soldiers, posts, groups, settings }) {
+  const soldiersMap = {}, postsMap = {}, groupsMap = {};
+  soldiers.forEach(s => { soldiersMap[s.id] = s; });
+  posts.forEach(p => { postsMap[p.id] = p; });
+  groups.forEach(g => { groupsMap[g.id] = g; });
+  const minRest = settings.min_rest_minutes ?? 240;
+
+  // בניית שורות עם קטגוריה
+  const rows = shifts.map(s => {
+    const soldier = s.soldier_id ? soldiersMap[s.soldier_id] : null;
+    const post    = postsMap[s.post_id];
+    const group   = soldier?.group_id ? groupsMap[soldier.group_id] : null;
+    let category  = 'ok';
+    if (!s.soldier_id) category = 'empty';
+    else if (s.is_forced) category = 'forced';
+    else if (s.rest_before_minutes !== null && s.rest_before_minutes < minRest) category = 'short';
+    return { ...s, soldier, post, group, category };
+  });
+
+  // סינון
+  const filtered = rowFilter === 'all' ? rows : rows.filter(r => r.category === rowFilter);
+
+  // סיכום
+  const total    = rows.length;
+  const assigned = rows.filter(r => r.soldier_id).length;
+  const forced   = rows.filter(r => r.category === 'forced').length;
+  const short    = rows.filter(r => r.category === 'short').length;
+  const empty    = rows.filter(r => r.category === 'empty').length;
+
+  document.getElementById('summaryRow').style.display = 'grid';
+  document.getElementById('summaryRow').style.gridTemplateColumns = 'repeat(5, 1fr)';
+  document.getElementById('summaryRow').style.gap = '0.5rem';
+  document.getElementById('summaryRow').innerHTML = [
+    { label: 'סה"כ',     val: total,    color: 'var(--text-main)' },
+    { label: 'שובצו',    val: assigned, color: 'var(--green)' },
+    { label: 'כפויות',   val: forced,   color: 'var(--red)' },
+    { label: 'מנוחה קצרה', val: short, color: 'var(--yellow)' },
+    { label: 'ריקות',    val: empty,    color: 'var(--text-muted)' },
+  ].map(x => `
+    <div class="stat-card" style="padding:0.65rem;">
+      <div class="stat-value" style="font-size:1.3rem;color:${x.color};">${x.val}</div>
+      <div class="stat-label">${x.label}</div>
+    </div>`).join('');
+
+  if (filtered.length === 0) {
+    document.getElementById('reportWrap').innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">אין שורות תואמות</div></div>';
+    return;
+  }
+
+  // מיון לפי זמן
+  filtered.sort((a,b) => a.start_time.localeCompare(b.start_time));
+
+  let html = `<table class="report-table">
+    <thead><tr>
+      <th>עמדה</th><th>חייל</th><th>מחלקה</th><th>תאריך</th>
+      <th>שעות</th><th>מנוחה</th><th>סטטוס</th>
+    </tr></thead><tbody>`;
+
+  const rowClsMap = { ok:'row-ok', short:'row-short', forced:'row-forced-r', empty:'row-empty-r' };
+  const statusMap = {
+    ok:     '<span class="badge badge-green">תקין</span>',
+    short:  '<span class="badge badge-yellow">מנוחה קצרה</span>',
+    forced: '<span class="badge badge-red">כפוי</span>',
+    empty:  '<span class="badge badge-gray">ריק</span>'
+  };
+
+  let lastDay = '';
+  filtered.forEach(row => {
+    const day = row.start_time.substring(0,10);
+    const postColor = row.post?.post_color || '#9ca3af';
+    const groupColor = row.group?.color_hex || null;
+
+    // הפרדת יום
+    if (day !== lastDay) {
+      lastDay = day;
+      html += `<tr><td colspan="7" style="background:var(--accent-light);color:var(--accent-text);font-weight:700;font-size:0.75rem;padding:0.3rem 0.65rem;border-bottom:1px solid var(--border);">
+        📅 ${formatDayName(day+'T12:00:00')} — ${formatDate(day+'T12:00:00')}
+      </td></tr>`;
+    }
+
+    html += `<tr class="${rowClsMap[row.category]}">
+      <td>
+        <span class="row-post-bar" style="background:${postColor};"></span>
+        ${row.post?.name || '—'}
+      </td>
+      <td style="font-weight:${row.soldier?'600':'400'};">
+        ${row.soldier ? `${row.soldier.first_name} ${row.soldier.last_name}` : '—'}
+      </td>
+      <td>
+        ${groupColor
+          ? `<span class="group-name-colored" style="color:${groupColor};">${row.group?.name || '—'}</span>`
+          : '<span style="color:var(--text-muted);">—</span>'}
+      </td>
+      <td style="white-space:nowrap;font-size:0.75rem;">${formatDate(row.start_time)}</td>
+      <td style="font-variant-numeric:tabular-nums;white-space:nowrap;">${formatTime(row.start_time)}–${formatTime(row.end_time)}</td>
+      <td style="font-variant-numeric:tabular-nums;">
+        ${row.rest_before_minutes !== null && row.rest_before_minutes !== undefined
+          ? `<span style="color:${row.rest_before_minutes < minRest ? 'var(--red)' : 'var(--green)'};">${formatMinutes(row.rest_before_minutes)}</span>`
+          : '<span style="color:var(--text-muted);">—</span>'}
+      </td>
+      <td>${statusMap[row.category]}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('reportWrap').innerHTML = html;
+}
+
+window.exportImage = async function() {
+  if (!reportData) { showToast('הפק דוח תחילה', 'warning'); return; }
+
+  showToast('מכין תמונה...', 'info');
+  try {
+    const el = document.getElementById('reportWrap');
+    const canvas = await html2canvas(el, {
+      backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-card').trim() || '#ffffff',
+      scale: 2,
+      useCORS: true
+    });
+    const link = document.createElement('a');
+    link.download = `shavtzak-report-${new Date().toLocaleDateString('he-IL').replace(/\//g,'-')}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    showToast('✓ תמונה נשמרה', 'success');
+  } catch (err) {
+    showToast('שגיאה בייצוא: ' + err.message, 'error');
+  }
+};
+</script>
+</body>
+</html>

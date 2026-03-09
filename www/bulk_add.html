@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>שבצ"ק - הוספה המונית</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.rtl.min.css">
+  <link rel="stylesheet" href="css/theme.css">
+</head>
+<body class="page-enter">
+
+<header class="page-header">
+  <div>
+    <div class="page-title">👥 הוספה המונית</div>
+    <div class="page-subtitle">ייבוא רשימת חיילים</div>
+  </div>
+  <a href="soldiers.html" class="btn btn-ghost btn-sm">← חזור</a>
+</header>
+
+<div class="page-wrap">
+
+  <div class="info-box" style="margin-bottom:0.75rem;">
+    <strong>פורמט:</strong> שורה לכל חייל — <code>שם פרטי שם משפחה, מספר אישי, מחלקה</code><br>
+    דוגמה: <code>ישראל ישראלי, 1234567, פלוגה א</code>
+  </div>
+
+  <div class="card" style="margin-bottom:0.75rem;">
+    <div class="form-group">
+      <label class="form-label">הדבק רשימה</label>
+      <textarea id="bulkInput" class="form-textarea" rows="8" placeholder="ישראל ישראלי, 1234567, פלוגה א&#10;אלי כהן, 7654321, פלוגה ב"></textarea>
+    </div>
+    <div style="display:flex;gap:0.5rem;">
+      <button class="btn btn-secondary btn-sm" onclick="preview()">👁 תצוגה מקדימה</button>
+      <button class="btn btn-primary btn-sm" onclick="doImport()" id="importBtn" disabled>⬆️ ייבא</button>
+    </div>
+  </div>
+
+  <div id="previewWrap" style="display:none;">
+    <div class="card-title" style="padding:0 0 0.5rem;">תצוגה מקדימה</div>
+    <div style="overflow-x:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);">
+      <table class="data-table" id="previewTable"></table>
+    </div>
+  </div>
+
+  <div id="resultWrap" style="display:none;margin-top:0.75rem;"></div>
+
+</div>
+
+<script type="module">
+import { getGroups, bulkAddSoldiers } from './js/firebase.js';
+import { initPage, showToast } from './js/ui.js';
+
+initPage();
+
+let parsedRows = [];
+let groups = [];
+
+async function init() { groups = await getGroups(); }
+init();
+
+function parseLine(line) {
+  const parts = line.split(',').map(p => p.trim());
+  if (parts.length < 1 || !parts[0]) return null;
+  const nameParts = parts[0].split(' ');
+  const first  = nameParts[0] || '';
+  const last   = nameParts.slice(1).join(' ') || '';
+  const serial = parts[1] || '';
+  const grpName = parts[2] || '';
+  const group  = groups.find(g => g.name.trim() === grpName.trim());
+  return { first_name: first, last_name: last, serial_number: serial, group_id: group?.id || null, group_name: grpName };
+}
+
+window.preview = function() {
+  const lines = document.getElementById('bulkInput').value.split('\n').map(l => l.trim()).filter(Boolean);
+  parsedRows = lines.map(parseLine).filter(Boolean);
+
+  if (parsedRows.length === 0) { showToast('לא נמצאו שורות תקינות', 'warning'); return; }
+
+  document.getElementById('previewWrap').style.display = 'block';
+  document.getElementById('importBtn').disabled = false;
+
+  document.getElementById('previewTable').innerHTML = `
+    <thead><tr>
+      <th>#</th><th>שם פרטי</th><th>שם משפחה</th><th>מספר אישי</th><th>מחלקה</th><th>סטטוס</th>
+    </tr></thead>
+    <tbody>
+      ${parsedRows.map((r, i) => `
+        <tr>
+          <td style="color:var(--text-muted);">${i+1}</td>
+          <td>${r.first_name}</td>
+          <td>${r.last_name}</td>
+          <td style="font-variant-numeric:tabular-nums;">${r.serial_number || '—'}</td>
+          <td>${r.group_name || '—'}</td>
+          <td>${r.group_id
+            ? `<span class="badge badge-green">✓ מחלקה נמצאה</span>`
+            : r.group_name
+              ? `<span class="badge badge-yellow">⚠ מחלקה לא נמצאה</span>`
+              : `<span class="badge badge-gray">ללא מחלקה</span>`}</td>
+        </tr>`).join('')}
+    </tbody>`;
+};
+
+window.doImport = async function() {
+  if (parsedRows.length === 0) return;
+  const btn = document.getElementById('importBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> מייבא...';
+
+  try {
+    const soldiers = parsedRows.map(r => ({
+      first_name: r.first_name, last_name: r.last_name,
+      serial_number: r.serial_number, group_id: r.group_id
+    }));
+    const result = await bulkAddSoldiers(soldiers);
+
+    document.getElementById('resultWrap').style.display = 'block';
+    document.getElementById('resultWrap').innerHTML = `
+      <div class="card">
+        <div class="card-title">✅ ייבוא הושלם</div>
+        <div style="display:flex;flex-direction:column;gap:0.4rem;">
+          <div class="result-row assigned" style="background:var(--green-light);color:var(--green);padding:0.5rem 0.75rem;border-radius:var(--radius-md);display:flex;justify-content:space-between;">
+            <span>נוספו</span><strong>${result.added}</strong>
+          </div>
+          <div class="result-row" style="background:var(--accent-light);color:var(--accent-text);padding:0.5rem 0.75rem;border-radius:var(--radius-md);display:flex;justify-content:space-between;">
+            <span>עודכנו</span><strong>${result.updated}</strong>
+          </div>
+          ${result.errors.length > 0 ? `<div class="result-row" style="background:var(--red-light);color:var(--red);padding:0.5rem 0.75rem;border-radius:var(--radius-md);display:flex;justify-content:space-between;">
+            <span>שגיאות</span><strong>${result.errors.length}</strong>
+          </div>` : ''}
+        </div>
+        <a href="soldiers.html" class="btn btn-primary btn-full" style="margin-top:0.75rem;">← חזור לרשימת חיילים</a>
+      </div>`;
+    showToast('✓ ייבוא הושלם', 'success');
+  } catch (err) {
+    showToast('שגיאה: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '⬆️ ייבא';
+  }
+};
+</script>
+</body>
+</html>

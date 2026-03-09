@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>שבצ"ק - שיבוץ</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.rtl.min.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    .option-card {
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 0.85rem 1rem;
+      cursor: pointer;
+      transition: all var(--transition);
+      background: var(--bg-card);
+    }
+    .option-card:hover    { border-color: var(--accent); }
+    .option-card.selected { border-color: var(--accent); background: var(--accent-light); }
+    .option-card input[type=radio] { display: none; }
+    .option-title { font-weight: 700; font-size: 0.88rem; display: flex; align-items: center; gap: 0.4rem; }
+    .option-desc  { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+    .result-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.45rem 0.75rem;
+      border-radius: var(--radius-md);
+      font-size: 0.85rem;
+    }
+    .result-row.assigned { background: var(--green-light);  color: var(--green); }
+    .result-row.forced   { background: var(--red-light);    color: var(--red); }
+    .result-row.empty    { background: var(--yellow-light); color: var(--yellow); }
+
+    /* ציר זמן */
+    .timeline-wrap { overflow-x: auto; padding-bottom: 0.5rem; }
+    .timeline-table {
+      min-width: 600px; width: 100%;
+      border-collapse: separate; border-spacing: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: var(--bg-card);
+    }
+    .timeline-table th {
+      background: var(--bg-row-alt);
+      padding: 0.45rem 0.6rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+    .timeline-table td {
+      padding: 0.4rem 0.6rem;
+      font-size: 0.8rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .timeline-table tr:last-child td { border-bottom: none; }
+    .timeline-table tr:hover td { background: var(--bg-hover); }
+
+    .timeline-bar-cell { width: 55%; padding: 0.35rem 0.6rem; }
+    .timeline-bar-track {
+      height: 20px;
+      background: var(--bg-row-alt);
+      border-radius: 4px;
+      position: relative;
+      border: 1px solid var(--border);
+      overflow: visible;
+    }
+    .timeline-bar {
+      position: absolute;
+      top: 0; bottom: 0;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: #fff;
+      overflow: hidden;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: filter 0.15s;
+      min-width: 4px;
+    }
+    .timeline-bar:hover { filter: brightness(1.15); }
+    .timeline-bar.empty-bar { background: var(--border) !important; color: var(--text-muted); }
+    .timeline-bar.forced-bar { opacity: 0.75; }
+
+    /* swap mode */
+    .swap-active { border: 2px dashed var(--accent) !important; }
+    .swap-banner {
+      background: var(--accent-light);
+      border: 1px solid #bfdbfe;
+      border-radius: var(--radius-md);
+      padding: 0.6rem 0.85rem;
+      font-size: 0.82rem;
+      color: var(--accent-text);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+  </style>
+</head>
+<body class="page-enter">
+
+<header class="page-header">
+  <div>
+    <div class="page-title">🗓 שיבוץ</div>
+    <div class="page-subtitle">הגדרת לוח משמרות</div>
+  </div>
+</header>
+
+<div class="page-wrap">
+
+  <!-- טווח זמן -->
+  <div class="card" style="margin-bottom:0.75rem;">
+    <div class="card-title">📅 טווח זמן</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">התחלה</label>
+        <input type="datetime-local" id="startTime" class="form-input">
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label class="form-label">סיום</label>
+        <input type="datetime-local" id="endTime" class="form-input">
+      </div>
+    </div>
+    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.5rem;">
+      <button class="chip" onclick="setQuick(24)">24 שעות</button>
+      <button class="chip" onclick="setQuick(48)">48 שעות</button>
+      <button class="chip" onclick="setQuick(72)">72 שעות</button>
+      <button class="chip" onclick="setQuick(168)">שבוע</button>
+    </div>
+  </div>
+
+  <!-- מצב הרצה -->
+  <div class="card" style="margin-bottom:0.75rem;">
+    <div class="card-title">⚙️ מצב הרצה</div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <label class="option-card selected" onclick="selectOpt('runMode',this)">
+        <input type="radio" name="runMode" value="new" checked>
+        <div class="option-title">🆕 חדש מאפס</div>
+        <div class="option-desc">מוחק את כל המשמרות בטווח ובונה מחדש</div>
+      </label>
+      <label class="option-card" onclick="selectOpt('runMode',this)">
+        <input type="radio" name="runMode" value="reassign">
+        <div class="option-title">🔄 שיבוץ מחדש</div>
+        <div class="option-desc">שומר את המשמרות, רק מאפס שיבוצים</div>
+      </label>
+      <label class="option-card" onclick="selectOpt('runMode',this)">
+        <input type="radio" name="runMode" value="holes">
+        <div class="option-title">🕳 מילוי חורים</div>
+        <div class="option-desc">משבץ רק משמרות ריקות, לא נוגע בקיים</div>
+      </label>
+    </div>
+  </div>
+
+  <!-- אפשרויות -->
+  <div class="card" style="margin-bottom:0.75rem;">
+    <div class="card-title">🔧 אפשרויות שיבוץ</div>
+
+    <div class="form-group">
+      <label class="form-label">מחסור בחיילים</label>
+      <div style="display:flex;gap:0.5rem;">
+        <label class="option-card selected" style="flex:1;" onclick="selectOpt('shortage',this)">
+          <input type="radio" name="shortage" value="empty" checked>
+          <div class="option-title">⬜ השאר ריק</div>
+        </label>
+        <label class="option-card" style="flex:1;" onclick="selectOpt('shortage',this)">
+          <input type="radio" name="shortage" value="force">
+          <div class="option-title">⚡ כפה שיבוץ</div>
+        </label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">חישוב מנוחה</label>
+      <div style="display:flex;gap:0.5rem;">
+        <label class="option-card selected" style="flex:1;" onclick="selectOpt('restCalc',this)">
+          <input type="radio" name="restCalc" value="regular" checked>
+          <div class="option-title">⏱ רגיל</div>
+          <div class="option-desc">שעות מוחלטות</div>
+        </label>
+        <label class="option-card" style="flex:1;" onclick="selectOpt('restCalc',this)">
+          <input type="radio" name="restCalc" value="relative">
+          <div class="option-title">⚖️ יחסי</div>
+          <div class="option-desc">לפי אורך משמרת</div>
+        </label>
+      </div>
+    </div>
+
+    <div class="toggle-wrap" onclick="document.getElementById('resetToggle').click()">
+      <div>
+        <div class="toggle-label">איפוס היסטוריה</div>
+        <div class="toggle-desc">מתחיל חישוב מנוחה מאפס, מתעלם מהיסטוריה קודמת</div>
+      </div>
+      <label class="toggle" onclick="event.stopPropagation()">
+        <input type="checkbox" id="resetToggle">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+  </div>
+
+  <!-- כפתור הפעלה -->
+  <button class="btn btn-primary btn-lg btn-full" id="runBtn" onclick="runAssign()" style="margin-bottom:0.75rem;">
+    ⚡ הפעל שיבוץ
+  </button>
+
+  <!-- תוצאות -->
+  <div class="card" id="resultsCard" style="display:none;margin-bottom:0.75rem;">
+    <div class="card-title">📊 תוצאות שיבוץ</div>
+    <div style="display:flex;flex-direction:column;gap:0.4rem;" id="resultsContent"></div>
+  </div>
+
+  <!-- ציר זמן -->
+  <div class="card" id="timelineCard" style="display:none;margin-bottom:0.75rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+      <div class="card-title" style="margin:0;">📊 תצוגת ציר זמן</div>
+      <div style="display:flex;gap:0.4rem;">
+        <button class="chip active" onclick="setView('timeline',this)">ציר</button>
+        <button class="chip" onclick="setView('table',this)">טבלה</button>
+      </div>
+    </div>
+    <div id="swapBanner" class="swap-banner" style="display:none;">
+      <span>🔄 בחר משמרת שנייה להחלפה</span>
+      <button class="btn btn-ghost btn-sm" onclick="cancelSwap()">ביטול</button>
+    </div>
+    <div id="timelineContent"></div>
+  </div>
+
+  <!-- בדיקת עומס -->
+  <div class="card" id="workloadCard" style="display:none;margin-bottom:0.75rem;">
+    <div class="card-title">⚖️ בדיקת עומס</div>
+    <div id="workloadContent"></div>
+  </div>
+
+  <!-- כפתור איפוס -->
+  <button class="btn btn-danger btn-sm btn-full" onclick="resetAll()" style="margin-bottom:1rem;">
+    🗑️ מחק את כל המשמרות בטווח
+  </button>
+
+</div>
+
+<script type="module">
+import {
+  getSettings, getShiftsInRange, deleteShiftsInRange,
+  getSoldiers, getPosts, updateShift, swapShiftSoldiers
+} from './js/firebase.js';
+import { generateShifts, checkWorkload } from './js/logic.js';
+import { initPage, showToast, confirmDialog, toLocalInputValue, fromLocalInputValue, formatTime, formatDate, formatMinutes, restBadge } from './js/ui.js';
+
+initPage();
+
+let currentShifts = [], soldiers = [], posts = [], settings = {};
+let swapFirst = null;
+let currentView = 'timeline';
+
+// ── ברירות מחדל זמן ────────────────────────
+function setDefaultTimes() {
+  const now = new Date();
+  now.setMinutes(0, 0, 0);
+  const end = new Date(now.getTime() + 48 * 3600000);
+  document.getElementById('startTime').value = toLocalInputValue(now.toISOString());
+  document.getElementById('endTime').value   = toLocalInputValue(end.toISOString());
+}
+
+window.setQuick = function(hours) {
+  const now = new Date();
+  now.setMinutes(0, 0, 0);
+  const end = new Date(now.getTime() + hours * 3600000);
+  document.getElementById('startTime').value = toLocalInputValue(now.toISOString());
+  document.getElementById('endTime').value   = toLocalInputValue(end.toISOString());
+};
+
+setDefaultTimes();
+
+// ── בחירת אופציות ─────────────────────────
+window.selectOpt = function(name, card) {
+  const parent = card.closest('.card, .form-group') || card.parentElement;
+  parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  card.querySelector('input').checked = true;
+};
+
+// ── הפעלת שיבוץ ───────────────────────────
+window.runAssign = async function() {
+  const startVal = document.getElementById('startTime').value;
+  const endVal   = document.getElementById('endTime').value;
+  if (!startVal || !endVal) { showToast('נא לבחור טווח זמן', 'warning'); return; }
+
+  const startISO = fromLocalInputValue(startVal);
+  const endISO   = fromLocalInputValue(endVal);
+  if (startISO >= endISO) { showToast('זמן סיום חייב להיות אחרי זמן התחלה', 'warning'); return; }
+
+  const runMode      = document.querySelector('[name="runMode"]:checked').value;
+  const shortage     = document.querySelector('[name="shortage"]:checked').value;
+  const restCalc     = document.querySelector('[name="restCalc"]:checked').value;
+  const resetHistory = document.getElementById('resetToggle').checked;
+
+  if (runMode === 'new') {
+    const ok = await confirmDialog('פעולה זו תמחק את כל המשמרות בטווח ותבנה מחדש. להמשיך?', 'הפעל שיבוץ');
+    if (!ok) return;
+  }
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> מבצע שיבוץ...';
+
+  // progress bar זמני
+  const progressEl = document.createElement('div');
+  progressEl.className = 'progress-wrap';
+  progressEl.innerHTML = `
+    <div class="progress-bar-track"><div class="progress-bar-fill" id="runProgress" style="width:0%"></div></div>
+    <div class="progress-label"><span id="progressMsg">מתחיל...</span><span id="progressPct">0%</span></div>`;
+  btn.insertAdjacentElement('afterend', progressEl);
+
+  try {
+    const result = await generateShifts(
+      startISO, endISO, shortage, restCalc, resetHistory, runMode,
+      (pct, msg) => {
+        const el = document.getElementById('runProgress');
+        const msgEl = document.getElementById('progressMsg');
+        const pctEl = document.getElementById('progressPct');
+        if (el)    el.style.width  = pct + '%';
+        if (msgEl) msgEl.textContent = msg;
+        if (pctEl) pctEl.textContent = pct + '%';
+      }
+    );
+
+    progressEl.remove();
+    showResults(result);
+    await loadTimeline(startISO, endISO);
+    await loadWorkload(startISO, endISO);
+    showToast('✓ שיבוץ הושלם', 'success');
+  } catch (err) {
+    progressEl.remove();
+    showToast('שגיאה: ' + err.message, 'error');
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '⚡ הפעל שיבוץ';
+  }
+};
+
+// ── תוצאות ─────────────────────────────────
+function showResults(r) {
+  document.getElementById('resultsCard').style.display = 'block';
+  document.getElementById('resultsContent').innerHTML = `
+    <div class="result-row assigned">
+      <span>✅ שובצו בהצלחה</span><strong>${r.assigned}</strong>
+    </div>
+    <div class="result-row forced">
+      <span>⚡ שובצו בכפייה</span><strong>${r.forced}</strong>
+    </div>
+    <div class="result-row empty">
+      <span>⬜ נשארו ריקים</span><strong>${r.empty}</strong>
+    </div>
+    <div style="padding:0.45rem 0.75rem;font-size:0.78rem;color:var(--text-muted);border-top:1px solid var(--border);margin-top:0.25rem;">
+      סה"כ ${r.total} משמרות | אחוז אכלוס: ${r.total > 0 ? Math.round(((r.assigned+r.forced)/r.total)*100) : 0}%
+    </div>`;
+}
+
+// ── ציר זמן / טבלה ─────────────────────────
+async function loadTimeline(startISO, endISO) {
+  [soldiers, posts, settings] = await Promise.all([
+    (await import('./js/firebase.js')).getSoldiers(),
+    (await import('./js/firebase.js')).getPosts(),
+    (await import('./js/firebase.js')).getSettings()
+  ]);
+  currentShifts = await getShiftsInRange(startISO, endISO);
+  document.getElementById('timelineCard').style.display = 'block';
+  renderTimeline();
+}
+
+window.setView = function(view, btn) {
+  currentView = view;
+  document.querySelectorAll('#timelineCard .chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderTimeline();
+};
+
+function renderTimeline() {
+  if (currentView === 'timeline') renderTimelineView();
+  else renderTableView();
+}
+
+function renderTimelineView() {
+  const soldiersMap = {}, postsMap = {};
+  soldiers.forEach(s => { soldiersMap[s.id] = s; });
+  posts.forEach(p => { postsMap[p.id] = p; });
+  const minRest = settings.min_rest_minutes ?? 240;
+
+  if (currentShifts.length === 0) {
+    document.getElementById('timelineContent').innerHTML = '<div style="text-align:center;padding:1rem;color:var(--text-muted);">אין משמרות</div>';
+    return;
+  }
+
+  const allStart = currentShifts.reduce((m, s) => s.start_time < m ? s.start_time : m, currentShifts[0].start_time);
+  const allEnd   = currentShifts.reduce((m, s) => s.end_time   > m ? s.end_time   : m, currentShifts[0].end_time);
+  const totalMs  = new Date(allEnd) - new Date(allStart);
+
+  // קיבוץ לפי עמדה
+  const byPost = {};
+  currentShifts.forEach(s => {
+    const key = s.post_id + '|' + (s.requirement_id || '');
+    if (!byPost[key]) byPost[key] = { post: postsMap[s.post_id], shifts: [] };
+    byPost[key].shifts.push(s);
+  });
+
+  let html = `<div class="timeline-wrap"><table class="timeline-table">
+    <thead><tr><th style="width:22%;">עמדה</th><th>ציר זמן</th><th style="width:12%;">אחוז</th></tr></thead>
+    <tbody>`;
+
+  Object.values(byPost).forEach(({ post, shifts }) => {
+    const color = post?.post_color || '#9ca3af';
+    const assigned = shifts.filter(s => s.soldier_id).length;
+    const pct = Math.round((assigned / shifts.length) * 100);
+
+    let barsHtml = '';
+    shifts.forEach(s => {
+      const left  = ((new Date(s.start_time) - new Date(allStart)) / totalMs * 100).toFixed(2);
+      const width = ((new Date(s.end_time)   - new Date(s.start_time)) / totalMs * 100).toFixed(2);
+      const soldier = s.soldier_id ? soldiersMap[s.soldier_id] : null;
+      const label  = soldier ? `${soldier.first_name} ${soldier.last_name[0]}.` : '';
+      const cls    = !soldier ? 'empty-bar' : s.is_forced ? 'forced-bar' : '';
+      const bg     = !soldier ? '' : `background:${color};`;
+      const locked = s.is_locked ? '🔒' : '';
+
+      barsHtml += `<div class="timeline-bar ${cls}" style="left:${left}%;width:${width}%;${bg}"
+        title="${label || 'ריק'} | ${formatTime(s.start_time)}–${formatTime(s.end_time)}"
+        onclick="onBarClick('${s.id}','${s.post_id}','${s.requirement_id || ''}')"
+        data-shift="${s.id}">
+        ${parseFloat(width) > 8 ? label + locked : ''}
+      </div>`;
+    });
+
+    html += `<tr>
+      <td style="font-size:0.8rem;font-weight:600;">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-left:4px;"></span>
+        ${post?.name || '—'}
+      </td>
+      <td class="timeline-bar-cell">
+        <div class="timeline-bar-track">${barsHtml}</div>
+      </td>
+      <td style="font-size:0.75rem;font-weight:700;color:${pct===100?'var(--green)':pct>0?'var(--yellow)':'var(--red)'};">${pct}%</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  document.getElementById('timelineContent').innerHTML = html;
+}
+
+function renderTableView() {
+  const soldiersMap = {}, postsMap = {};
+  soldiers.forEach(s => { soldiersMap[s.id] = s; });
+  posts.forEach(p => { postsMap[p.id] = p; });
+  const minRest = settings.min_rest_minutes ?? 240;
+
+  const sorted = [...currentShifts].sort((a,b) => a.start_time.localeCompare(b.start_time));
+
+  let html = `<div class="timeline-wrap"><table class="timeline-table">
+    <thead><tr><th>עמדה</th><th>חייל</th><th>שעות</th><th>מנוחה</th><th></th></tr></thead><tbody>`;
+
+  sorted.forEach(s => {
+    const post    = postsMap[s.post_id];
+    const soldier = s.soldier_id ? soldiersMap[s.soldier_id] : null;
+    const color   = post?.post_color || '#9ca3af';
+
+    html += `<tr data-shift="${s.id}" class="${swapFirst === s.id ? 'swap-active' : ''}" onclick="onBarClick('${s.id}','${s.post_id}','${s.requirement_id||''}')">
+      <td>
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-left:4px;"></span>
+        ${post?.name || '—'}
+      </td>
+      <td style="font-weight:${soldier?'600':'400'};color:${soldier?'inherit':'var(--text-muted)'};">
+        ${soldier ? `${soldier.first_name} ${soldier.last_name}` : '—'}
+        ${s.is_locked ? '🔒' : ''}
+      </td>
+      <td style="font-size:0.78rem;font-variant-numeric:tabular-nums;white-space:nowrap;">${formatTime(s.start_time)}–${formatTime(s.end_time)}</td>
+      <td>${restBadge(s.rest_before_minutes, minRest, s.is_forced)}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();startSwap('${s.id}')">🔄</button></td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  document.getElementById('timelineContent').innerHTML = html;
+}
+
+// ── החלפת משמרות ───────────────────────────
+window.onBarClick = function(shiftId) {
+  if (!swapFirst) return;
+  if (swapFirst === shiftId) { cancelSwap(); return; }
+  doSwap(swapFirst, shiftId);
+};
+
+window.startSwap = function(shiftId) {
+  swapFirst = shiftId;
+  document.getElementById('swapBanner').style.display = 'flex';
+  renderTimeline();
+};
+
+window.cancelSwap = function() {
+  swapFirst = null;
+  document.getElementById('swapBanner').style.display = 'none';
+  renderTimeline();
+};
+
+async function doSwap(idA, idB) {
+  const shiftA = currentShifts.find(s => s.id === idA);
+  const shiftB = currentShifts.find(s => s.id === idB);
+  if (shiftA?.is_locked || shiftB?.is_locked) {
+    showToast('לא ניתן להחליף משמרת נעולה', 'warning');
+    cancelSwap(); return;
+  }
+  try {
+    await swapShiftSoldiers(idA, idB);
+    showToast('✓ חיילים הוחלפו', 'success');
+    cancelSwap();
+    const startVal = document.getElementById('startTime').value;
+    const endVal   = document.getElementById('endTime').value;
+    if (startVal && endVal) {
+      currentShifts = await getShiftsInRange(fromLocalInputValue(startVal), fromLocalInputValue(endVal));
+      renderTimeline();
+    }
+  } catch (err) {
+    showToast('שגיאה: ' + err.message, 'error');
+    cancelSwap();
+  }
+}
+
+// ── בדיקת עומס ─────────────────────────────
+async function loadWorkload(startISO, endISO) {
+  const { results, avg } = await checkWorkload(startISO, endISO);
+  document.getElementById('workloadCard').style.display = 'block';
+
+  if (results.length === 0) {
+    document.getElementById('workloadContent').innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;">אין נתונים</div>';
+    return;
+  }
+
+  const maxCount = results[0].count;
+  let html = `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.5rem;">ממוצע: ${avg.toFixed(1)} משמרות</div>`;
+
+  results.slice(0, 10).forEach(c => {
+    const w = maxCount > 0 ? Math.round((c.count / maxCount) * 100) : 0;
+    const barColor = c.isOverloaded ? 'var(--red)' : 'var(--accent)';
+    html += `
+      <div style="margin-bottom:0.5rem;">
+        <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:2px;">
+          <span style="font-weight:${c.isOverloaded?'700':'400'};color:${c.isOverloaded?'var(--red)':'inherit'};">
+            ${c.isOverloaded?'⚠ ':''}${c.soldier.first_name} ${c.soldier.last_name}
+          </span>
+          <span style="color:var(--text-muted);">${c.count} משמרות${c.forcedCount>0?` · ${c.forcedCount} כפויות`:''}</span>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" style="width:${w}%;background:${barColor};"></div>
+        </div>
+      </div>`;
+  });
+
+  document.getElementById('workloadContent').innerHTML = html;
+}
+
+// ── איפוס ──────────────────────────────────
+window.resetAll = async function() {
+  const startVal = document.getElementById('startTime').value;
+  const endVal   = document.getElementById('endTime').value;
+  if (!startVal || !endVal) { showToast('נא לבחור טווח זמן תחילה', 'warning'); return; }
+
+  const ok = await confirmDialog('למחוק את כל המשמרות בטווח הזמן שנבחר?', 'מחק');
+  if (!ok) return;
+
+  try {
+    const n = await deleteShiftsInRange(fromLocalInputValue(startVal), fromLocalInputValue(endVal));
+    showToast(`✓ נמחקו ${n} משמרות`, 'success');
+    document.getElementById('timelineCard').style.display = 'none';
+    document.getElementById('resultsCard').style.display = 'none';
+    document.getElementById('workloadCard').style.display = 'none';
+  } catch (err) {
+    showToast('שגיאה: ' + err.message, 'error');
+  }
+};
+</script>
+</body>
+</html>

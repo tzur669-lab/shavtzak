@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>שבצ"ק - מדריך</title>
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    body { padding-bottom: 0; background: var(--bg-base); display: flex; flex-direction: column; min-height: 100vh; }
+
+    .wizard-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 480px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 1.5rem 1.25rem 2rem;
+    }
+
+    /* פס התקדמות עליון */
+    .wiz-progress {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 1.5rem;
+    }
+    .wiz-step-dot {
+      height: 4px;
+      flex: 1;
+      border-radius: 2px;
+      background: var(--border);
+      transition: background 0.3s;
+    }
+    .wiz-step-dot.done   { background: var(--accent); }
+    .wiz-step-dot.active { background: var(--accent); opacity: 0.6; }
+
+    /* תוכן שלב */
+    .wiz-slide { display: none; flex-direction: column; flex: 1; }
+    .wiz-slide.active { display: flex; animation: pageEnter 0.3s ease; }
+
+    .wiz-icon { font-size: 3rem; margin-bottom: 1rem; text-align: center; }
+    .wiz-title { font-size: 1.4rem; font-weight: 700; text-align: center; margin-bottom: 0.5rem; }
+    .wiz-desc  { font-size: 0.9rem; color: var(--text-muted); text-align: center; line-height: 1.6; margin-bottom: 1.5rem; }
+
+    .wiz-content { flex: 1; }
+
+    /* כפתורים תחתיים */
+    .wiz-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .wiz-skip {
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0.3rem 0.5rem;
+      border-radius: var(--radius-md);
+      text-decoration: underline;
+    }
+    .wiz-skip:hover { color: var(--text-sub); }
+
+    /* שלב 2 — עמדה */
+    .sample-card {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      border-right: 4px solid var(--accent);
+    }
+
+    /* נקודות עיצוב */
+    .tip-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+    .tip-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      font-size: 0.85rem;
+      color: var(--text-sub);
+      line-height: 1.5;
+    }
+    .tip-list li .tip-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+  </style>
+</head>
+<body>
+
+<button class="wiz-skip" onclick="skipWizard()">דלג על המדריך ←</button>
+
+<div class="wizard-wrap">
+  <!-- פס התקדמות -->
+  <div class="wiz-progress" id="wizProgress"></div>
+
+  <!-- ══ שלב 1: ברוך הבא ══ -->
+  <div class="wiz-slide active" data-step="0">
+    <div class="wiz-icon">⚔️</div>
+    <div class="wiz-title">ברוך הבא לשבצ"ק</div>
+    <div class="wiz-desc">מערכת ניהול שמירות צבאיות — חכמה, מהירה, ומותאמת לשטח.</div>
+    <div class="wiz-content">
+      <ul class="tip-list">
+        <li><span class="tip-icon">🏰</span><span><strong>עמדות</strong> — הגדר את עמדות השמירה שלך עם מספר תקנים ומשך משמרת</span></li>
+        <li><span class="tip-icon">👤</span><span><strong>חיילים</strong> — הוסף חיילים למערכת, שייך לפלוגה ותפקידים</span></li>
+        <li><span class="tip-icon">🗓</span><span><strong>שיבוץ</strong> — הפעל את האלגוריתם ויקבל לוח אוטומטי תוך שניות</span></li>
+        <li><span class="tip-icon">📋</span><span><strong>לוח</strong> — צפה בשבצ"ק בזמן אמת, שבץ חירום, נעל משמרות</span></li>
+      </ul>
+    </div>
+    <div class="wiz-actions">
+      <button class="btn btn-primary btn-lg btn-full" onclick="nextStep()">בוא נתחיל ←</button>
+    </div>
+  </div>
+
+  <!-- ══ שלב 2: הגדרות ══ -->
+  <div class="wiz-slide" data-step="1">
+    <div class="wiz-icon">⚙️</div>
+    <div class="wiz-title">הגדרות ראשוניות</div>
+    <div class="wiz-desc">קבע את מינימום המנוחה בין משמרות.</div>
+    <div class="wiz-content">
+      <div class="sample-card">
+        <label class="form-label">שעות מנוחה מינימליות</label>
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <input type="number" id="wizRestHours" class="form-input" style="width:80px;" value="4" min="1" max="24">
+          <span style="color:var(--text-muted);font-size:0.85rem;">שעות</span>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.4rem;">חייל לא יוכל לקבל משמרת אם לא עברו לפחות X שעות ממשמרתו הקודמת</div>
+      </div>
+      <div class="info-box">ניתן לשנות זאת בכל עת דרך הגדרות ← מנוחה מינימלית</div>
+    </div>
+    <div class="wiz-actions">
+      <button class="btn btn-secondary" onclick="prevStep()">→ חזור</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="saveAndNext()">שמור והמשך ←</button>
+    </div>
+  </div>
+
+  <!-- ══ שלב 3: עמדה ══ -->
+  <div class="wiz-slide" data-step="2">
+    <div class="wiz-icon">🏰</div>
+    <div class="wiz-title">צור עמדה ראשונה</div>
+    <div class="wiz-desc">עמדה = מיקום שמירה. לכל עמדה יש שם, משך משמרת, ומספר תקנים.</div>
+    <div class="wiz-content">
+      <div class="sample-card">
+        <div class="form-group">
+          <label class="form-label">שם העמדה</label>
+          <input type="text" id="wizPostName" class="form-input" placeholder="שער כניסה">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">משך משמרת (דקות)</label>
+          <input type="number" id="wizPostDur" class="form-input" value="60" min="30" step="30">
+        </div>
+      </div>
+      <div class="info-box">תוכל להוסיף עוד עמדות ותקנים בדף "עמדות" לאחר המדריך</div>
+    </div>
+    <div class="wiz-actions">
+      <button class="btn btn-secondary" onclick="prevStep()">→ חזור</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="createPostAndNext()">צור עמדה ←</button>
+      <button class="btn btn-ghost btn-sm" onclick="skipStep()">דלג</button>
+    </div>
+  </div>
+
+  <!-- ══ שלב 4: חייל ══ -->
+  <div class="wiz-slide" data-step="3">
+    <div class="wiz-icon">👤</div>
+    <div class="wiz-title">הוסף חייל ראשון</div>
+    <div class="wiz-desc">הוסף לפחות חייל אחד כדי לאפשר שיבוץ.</div>
+    <div class="wiz-content">
+      <div class="sample-card">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+          <div class="form-group">
+            <label class="form-label">שם פרטי</label>
+            <input type="text" id="wizSoldierFirst" class="form-input" placeholder="ישראל">
+          </div>
+          <div class="form-group">
+            <label class="form-label">שם משפחה</label>
+            <input type="text" id="wizSoldierLast" class="form-input" placeholder="ישראלי">
+          </div>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">מספר אישי</label>
+          <input type="text" id="wizSoldierSerial" class="form-input" placeholder="1234567">
+        </div>
+      </div>
+      <div class="info-box">תוכל להוסיף עוד חיילים בכמויות גדולות דרך "הוספה המונית"</div>
+    </div>
+    <div class="wiz-actions">
+      <button class="btn btn-secondary" onclick="prevStep()">→ חזור</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="createSoldierAndNext()">הוסף ←</button>
+      <button class="btn btn-ghost btn-sm" onclick="skipStep()">דלג</button>
+    </div>
+  </div>
+
+  <!-- ══ שלב 5: סיום ══ -->
+  <div class="wiz-slide" data-step="4">
+    <div class="wiz-icon">🎉</div>
+    <div class="wiz-title">הכל מוכן!</div>
+    <div class="wiz-desc">המערכת מוכנה לשימוש. הנה הצעדים הבאים שלך:</div>
+    <div class="wiz-content">
+      <ul class="tip-list">
+        <li><span class="tip-icon">1️⃣</span><span>הוסף עמדות נוספות עם תקנים ← <a href="posts.html" style="color:var(--accent);">עמדות</a></span></li>
+        <li><span class="tip-icon">2️⃣</span><span>הוסף עוד חיילים ← <a href="soldiers.html" style="color:var(--accent);">חיילים</a> / הוספה המונית</span></li>
+        <li><span class="tip-icon">3️⃣</span><span>הפעל שיבוץ ← <a href="shifts.html" style="color:var(--accent);">שיבוץ</a></span></li>
+        <li><span class="tip-icon">4️⃣</span><span>צפה בלוח בזמן אמת ← <a href="index.html" style="color:var(--accent);">לוח</a></span></li>
+      </ul>
+    </div>
+    <div class="wiz-actions">
+      <button class="btn btn-primary btn-lg btn-full" onclick="finish()">🚀 עבור ללוח</button>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { getSettings, saveSettings, addPost, addRequirement, addSoldier } from './js/firebase.js';
+import { initTheme, initFontSize, showToast } from './js/ui.js';
+
+initTheme();
+initFontSize();
+
+const TOTAL_STEPS = 5;
+let currentStep = 0;
+
+// בנה נקודות התקדמות
+const prog = document.getElementById('wizProgress');
+for (let i = 0; i < TOTAL_STEPS; i++) {
+  const d = document.createElement('div');
+  d.className = 'wiz-step-dot';
+  prog.appendChild(d);
+}
+
+function updateProgress() {
+  document.querySelectorAll('.wiz-step-dot').forEach((d, i) => {
+    d.className = 'wiz-step-dot';
+    if (i < currentStep) d.classList.add('done');
+    else if (i === currentStep) d.classList.add('active');
+  });
+  document.querySelectorAll('.wiz-slide').forEach((s, i) => {
+    s.classList.toggle('active', i === currentStep);
+  });
+}
+
+window.nextStep = function() {
+  if (currentStep < TOTAL_STEPS - 1) { currentStep++; updateProgress(); }
+};
+
+window.prevStep = function() {
+  if (currentStep > 0) { currentStep--; updateProgress(); }
+};
+
+window.skipStep = function() { window.nextStep(); };
+
+window.skipWizard = function() {
+  localStorage.setItem('shavtzak_wizard_done', '1');
+  window.location.href = 'index.html';
+};
+
+window.finish = function() {
+  localStorage.setItem('shavtzak_wizard_done', '1');
+  window.location.href = 'index.html';
+};
+
+// שלב 2 — שמור הגדרות
+window.saveAndNext = async function() {
+  const h = parseInt(document.getElementById('wizRestHours').value) || 4;
+  try {
+    await saveSettings({ min_rest_minutes: h * 60 });
+    showToast('✓ הגדרות נשמרו', 'success');
+  } catch { /* לא קריטי */ }
+  nextStep();
+};
+
+// שלב 3 — צור עמדה
+window.createPostAndNext = async function() {
+  const name = document.getElementById('wizPostName').value.trim();
+  const dur  = parseInt(document.getElementById('wizPostDur').value) || 60;
+  if (!name) { showToast('נא להזין שם עמדה', 'warning'); return; }
+  try {
+    const ref = await addPost({ name, duration_minutes: dur, post_color: '#2563eb' });
+    await addRequirement(ref.key, { label: 'שומר', required_role_id: null });
+    showToast('✓ עמדה נוצרה', 'success');
+  } catch (err) { showToast('שגיאה: ' + err.message, 'error'); return; }
+  nextStep();
+};
+
+// שלב 4 — הוסף חייל
+window.createSoldierAndNext = async function() {
+  const first  = document.getElementById('wizSoldierFirst').value.trim();
+  const last   = document.getElementById('wizSoldierLast').value.trim();
+  const serial = document.getElementById('wizSoldierSerial').value.trim();
+  if (!first || !last) { showToast('נא להזין שם פרטי ושם משפחה', 'warning'); return; }
+  try {
+    await addSoldier({ first_name: first, last_name: last, serial_number: serial, soldier_number: 1, is_active: true, roles: [], group_id: null, absence_reason: null, return_to_service_time: null });
+    showToast('✓ חייל נוסף', 'success');
+  } catch (err) { showToast('שגיאה: ' + err.message, 'error'); return; }
+  nextStep();
+};
+
+// בדיקה אם כבר עשה wizard
+if (localStorage.getItem('shavtzak_wizard_done') === '1') {
+  // אם הגיע מ-settings — הצג בכל זאת
+  const fromSettings = document.referrer.includes('settings');
+  if (!fromSettings) window.location.href = 'index.html';
+}
+
+updateProgress();
+</script>
+</body>
+</html>
