@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>שבצ"ק - הגדרות</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.rtl.min.css">
+  <style>
+    :root { --bg-base:#0d1117; --bg-card:#161b22; --bg-row:#1e2530; --border:#30363d; --text-main:#e6edf3; --text-muted:#7d8590; --accent:#1f6feb; }
+    body { background:var(--bg-base); color:var(--text-main); font-family:'Segoe UI','Arial Hebrew',Arial,sans-serif; font-size:0.88rem; }
+    .nav-bar { background:var(--bg-card); border-bottom:1px solid var(--border); padding:0.5rem 1rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; position:sticky; top:0; z-index:100; }
+    .nav-bar .brand { font-size:1.1rem; font-weight:700; color:var(--accent); margin-left:auto; }
+    .nav-link { color:var(--text-muted)!important; padding:0.35rem 0.65rem!important; border-radius:6px; font-size:0.82rem; text-decoration:none; }
+    .nav-link:hover { background:rgba(255,255,255,0.07); color:var(--text-main)!important; }
+    .nav-link.active { background:rgba(31,111,235,0.2); color:#58a6ff!important; }
+
+    .main-wrap { padding:1rem; max-width:520px; margin:0 auto; }
+    .card { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:1.25rem; margin-bottom:1rem; }
+    .card-title { font-size:0.95rem; font-weight:700; color:#58a6ff; margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem; }
+
+    label { color:var(--text-muted); font-size:0.8rem; margin-bottom:0.3rem; display:block; }
+    .form-control, .form-select {
+      background:#0d1117; border:1px solid var(--border); color:var(--text-main);
+      border-radius:6px; padding:0.45rem 0.65rem; font-size:0.85rem;
+    }
+    .form-control:focus, .form-select:focus { outline:none; border-color:var(--accent); }
+    .form-select option { background:#1e2530; }
+
+    /* time input group */
+    .time-group { display:flex; gap:0.5rem; align-items:center; }
+    .time-group .form-control { width:75px; }
+    .time-group span { color:var(--text-muted); font-size:0.85rem; }
+
+    .btn-save { background:var(--accent); color:#fff; border:none; padding:0.55rem 1.5rem; border-radius:7px; font-size:0.88rem; font-weight:600; cursor:pointer; transition:background 0.15s; }
+    .btn-save:hover { background:#388bfd; }
+    .btn-save:disabled { opacity:0.6; cursor:not-allowed; }
+
+    .info-note { background:rgba(31,111,235,0.08); border:1px solid rgba(31,111,235,0.2); border-radius:6px; padding:0.65rem 0.85rem; font-size:0.8rem; color:#8ab4f8; margin-top:0.75rem; }
+
+    .section-divider { border-top:1px solid var(--border); margin:1rem 0; }
+
+    /* groups/roles management */
+    .list-item { display:flex; align-items:center; gap:0.5rem; padding:0.35rem 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.83rem; }
+    .list-item:last-child { border-bottom:none; }
+    .color-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+    .list-item-name { flex:1; }
+    .btn-del-item { background:none; border:none; color:#7d8590; cursor:pointer; padding:2px 5px; border-radius:3px; font-size:0.8rem; transition:color 0.15s; }
+    .btn-del-item:hover { color:#f85149; }
+    .add-row { display:flex; gap:0.5rem; margin-top:0.65rem; }
+    .add-row .form-control { flex:1; padding:0.35rem 0.55rem; font-size:0.82rem; }
+    .btn-add-item { background:rgba(31,111,235,0.15); color:#58a6ff; border:1px solid rgba(31,111,235,0.3); padding:0.35rem 0.75rem; border-radius:5px; font-size:0.8rem; cursor:pointer; white-space:nowrap; }
+    .btn-add-item:hover { background:rgba(31,111,235,0.25); }
+  </style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <span class="brand">⚔ שבצ"ק</span>
+  <a href="index.html"       class="nav-link">לוח</a>
+  <a href="shifts.html"      class="nav-link">שיבוץ</a>
+  <a href="soldiers.html"    class="nav-link">חיילים</a>
+  <a href="posts.html"       class="nav-link">עמדות</a>
+  <a href="admin_check.html" class="nav-link">בקרה</a>
+  <a href="settings.html"    class="nav-link active">הגדרות</a>
+</nav>
+
+<div class="main-wrap">
+
+  <!-- מנוחה מינימלית -->
+  <div class="card">
+    <div class="card-title">⏱ מנוחה מינימלית לחיילים</div>
+
+    <label>זמן מנוחה מינימלי בין משמרות</label>
+    <div class="time-group">
+      <input type="number" id="restHours" class="form-control" min="0" max="48" value="4">
+      <span>שעות</span>
+      <input type="number" id="restMins" class="form-control" min="0" max="59" value="0">
+      <span>דקות</span>
+    </div>
+
+    <div class="info-note" id="currentRestNote">
+      ⚙ ערך נוכחי: <strong id="currentRestDisplay">טוען...</strong>
+    </div>
+
+    <div style="margin-top:1rem;">
+      <button class="btn-save" id="saveRestBtn" onclick="saveRest()">💾 שמור הגדרות מנוחה</button>
+    </div>
+  </div>
+
+  <!-- ניהול מחלקות -->
+  <div class="card">
+    <div class="card-title">🏷 מחלקות</div>
+
+    <div id="groupsList"></div>
+
+    <div class="add-row">
+      <input type="text" id="newGroupName" class="form-control" placeholder="שם מחלקה">
+      <input type="color" id="newGroupColor" value="#007bff" style="width:36px;height:32px;border:1px solid #30363d;border-radius:5px;background:none;cursor:pointer;padding:2px;">
+      <button class="btn-add-item" onclick="addGroup()">+ הוסף</button>
+    </div>
+  </div>
+
+  <!-- ניהול פק"לים -->
+  <div class="card">
+    <div class="card-title">🎖 תפקידים / פק"לים</div>
+
+    <div id="rolesList"></div>
+
+    <div class="add-row">
+      <input type="text" id="newRoleName" class="form-control" placeholder="שם תפקיד (חובש, נהג...)">
+      <button class="btn-add-item" onclick="addRole()">+ הוסף</button>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import {
+  getSettings, saveSettings,
+  getGroups, addGroup as fbAddGroup, updateGroup, deleteGroup,
+  getRoles, addRole as fbAddRole, deleteRole
+} from './js/firebase.js';
+import { showToast, confirmDialog, formatMinutes, COLOR_PALETTE } from './js/ui.js';
+
+let groups = [], roles = [];
+
+// ─── טעינה ────────────────────────────────────
+async function loadAll() {
+  const [settings, g, r] = await Promise.all([getSettings(), getGroups(), getRoles()]);
+  groups = g; roles = r;
+
+  const mins = settings.min_rest_minutes ?? 240;
+  document.getElementById('restHours').value = Math.floor(mins / 60);
+  document.getElementById('restMins').value  = mins % 60;
+  document.getElementById('currentRestDisplay').textContent = formatMinutes(mins);
+
+  renderGroups();
+  renderRoles();
+}
+
+// ─── שמירת מנוחה ──────────────────────────────
+window.saveRest = async function() {
+  const h = parseInt(document.getElementById('restHours').value) || 0;
+  const m = parseInt(document.getElementById('restMins').value)  || 0;
+  const totalMins = h * 60 + m;
+
+  if (totalMins < 30) { showToast('מנוחה מינימלית: 30 דקות לפחות', 'warning'); return; }
+
+  const btn = document.getElementById('saveRestBtn');
+  btn.disabled = true;
+  try {
+    await saveSettings({ min_rest_minutes: totalMins });
+    document.getElementById('currentRestDisplay').textContent = formatMinutes(totalMins);
+    showToast('הגדרות מנוחה נשמרו', 'success');
+  } catch (err) {
+    showToast('שגיאה: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// ─── מחלקות ───────────────────────────────────
+function renderGroups() {
+  const list = document.getElementById('groupsList');
+  if (groups.length === 0) {
+    list.innerHTML = '<div style="color:#7d8590;font-size:0.78rem;padding:0.25rem 0;">אין מחלקות</div>';
+    return;
+  }
+  list.innerHTML = groups.map(g => `
+    <div class="list-item">
+      <span class="color-dot" style="background:${g.color_hex || '#6c757d'};"></span>
+      <span class="list-item-name">${g.name}</span>
+      <button class="btn-del-item" onclick="deleteGroupUI('${g.id}')" title="מחק">🗑</button>
+    </div>`).join('');
+}
+
+window.addGroup = async function() {
+  const name = document.getElementById('newGroupName').value.trim();
+  const color = document.getElementById('newGroupColor').value;
+  if (!name) { showToast('נא להזין שם מחלקה', 'warning'); return; }
+  try {
+    await fbAddGroup({ name, color_hex: color });
+    document.getElementById('newGroupName').value = '';
+    showToast('מחלקה נוספה', 'success');
+    groups = await getGroups();
+    renderGroups();
+  } catch (err) {
+    showToast('שגיאה: ' + err.message, 'error');
+  }
+};
+
+window.deleteGroupUI = async function(id) {
+  if (!await confirmDialog('למחוק מחלקה זו?', 'מחק')) return;
+  try {
+    await deleteGroup(id);
+    showToast('מחלקה נמחקה', 'success');
+    groups = await getGroups();
+    renderGroups();
+  } catch (err) {
+    showToast('שגיאה: ' + err.message, 'error');
+  }
+};
+
+// ─── פק"לים ───────────────────────────────────
+function renderRoles() {
+  const list = document.getElementById('rolesList');
+  if (roles.length === 0) {
+    list.innerHTML = '<div style="color:#7d8590;font-size:0.78rem;padding:0.25rem 0;">אין תפקידים</div>';
+    return;
+  }
+  list.innerHTML = roles.map(r => `
+    <div class="list-item">
+      <span style="font-size:0.9rem;">🎖</span>
+      <span class="list-item-name">${r.name}</span>
+      <button class="btn-del-item" onclick="deleteRoleUI('${r.id}')" title="מחק">🗑</button>
+    </div>`).join('');
+}
+
+window.addRole = async function() {
+  const name = document.getElementById('newRoleName').value.trim();
+  if (!name) { showToast('נא להזין שם תפקיד', 'warning'); return; }
+  try {
+    await fbAddRole({ name });
+    document.getElementById('newRoleName').value = '';
+    showToast('תפקיד נוסף', 'success');
+    roles = await getRoles();
+    renderRoles();
+  } catch (err) {
+    showToast('שגיאה: ' + err.message, 'error');
+  }
+};
+
+window.deleteRoleUI = async function(id) {
+  if (!await confirmDialog('למחוק תפקיד זה?', 'מחק')) return;
+  try {
+    await deleteRole(id);
+    showToast('תפקיד נמחק', 'success');
+    roles = await getRoles();
+    renderRoles();
+  } catch (err) {
+    showToast('שגיאה: ' + err.message, 'error');
+  }
+};
+
+loadAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>שבצ"ק - בקרת מנוחה</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.rtl.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    :root { --bg-base:#0d1117; --bg-card:#161b22; --bg-row:#1e2530; --border:#30363d; --text-main:#e6edf3; --text-muted:#7d8590; --accent:#1f6feb; }
+    body { background:var(--bg-base); color:var(--text-main); font-family:'Segoe UI','Arial Hebrew',Arial,sans-serif; font-size:0.88rem; }
+    .nav-bar { background:var(--bg-card); border-bottom:1px solid var(--border); padding:0.5rem 1rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; position:sticky; top:0; z-index:100; }
+    .nav-bar .brand { font-size:1.1rem; font-weight:700; color:var(--accent); margin-left:auto; }
+    .nav-link { color:var(--text-muted)!important; padding:0.35rem 0.65rem!important; border-radius:6px; font-size:0.82rem; text-decoration:none; }
+    .nav-link:hover { background:rgba(255,255,255,0.07); color:var(--text-main)!important; }
+    .nav-link.active { background:rgba(31,111,235,0.2); color:#58a6ff!important; }
+
+    .main-wrap { padding:1rem; }
+
+    /* פקד בקרה */
+    .control-row {
+      display:flex; gap:0.75rem; margin-bottom:1rem; align-items:flex-end; flex-wrap:wrap;
+      background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:0.75rem 1rem;
+    }
+    label { color:var(--text-muted); font-size:0.78rem; margin-bottom:0.2rem; display:block; }
+    .form-control { background:#0d1117; border:1px solid var(--border); color:var(--text-main); border-radius:6px; padding:0.4rem 0.6rem; font-size:0.85rem; }
+    .form-control:focus { outline:none; border-color:var(--accent); }
+    .time-group { display:flex; gap:0.4rem; align-items:center; }
+    .time-label { color:var(--text-muted); font-size:0.8rem; }
+    .btn-run { background:var(--accent); color:#fff; border:none; padding:0.45rem 1rem; border-radius:6px; font-size:0.85rem; cursor:pointer; white-space:nowrap; }
+    .btn-run:hover { background:#388bfd; }
+    .btn-export { background:#1e2530; color:#7d8590; border:1px solid var(--border); padding:0.45rem 1rem; border-radius:6px; font-size:0.85rem; cursor:pointer; white-space:nowrap; }
+    .btn-export:hover { background:rgba(255,255,255,0.07); color:var(--text-main); }
+
+    /* טבלת בקרה */
+    #reportWrap { overflow-x:auto; }
+    .check-table { width:100%; border-collapse:separate; border-spacing:0; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .check-table thead th { background:var(--bg-card); padding:0.5rem 0.75rem; font-size:0.78rem; color:var(--text-muted); font-weight:600; border-bottom:1px solid var(--border); white-space:nowrap; }
+    .check-table tbody tr { background:var(--bg-row); border-bottom:1px solid var(--border); transition:background 0.1s; }
+    .check-table tbody tr:last-child { border-bottom:none; }
+    .check-table td { padding:0.5rem 0.75rem; vertical-align:middle; }
+
+    /* סטטוסי שורה */
+    .row-ok     { }
+    .row-forced { background:rgba(220,53,69,0.18) !important; }
+    .row-short  { background:rgba(253,126,20,0.15) !important; }
+    .row-empty  { background:rgba(108,117,125,0.12) !important; color:var(--text-muted); }
+
+    /* badge מנוחה */
+    .rest-ok      { color:#3fb950; font-weight:600; }
+    .rest-short   { color:#fd7e14; font-weight:600; }
+    .rest-forced  { color:#f85149; font-weight:600; }
+    .rest-new     { color:#7d8590; }
+
+    .badge-role { background:rgba(255,193,7,0.12); color:#e3b341; border:1px solid rgba(255,193,7,0.25); padding:1px 5px; border-radius:4px; font-size:0.68rem; }
+    .group-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+
+    /* summary */
+    .summary-bar {
+      display:flex; gap:1rem; flex-wrap:wrap; padding:0.6rem 1rem;
+      background:var(--bg-card); border:1px solid var(--border); border-radius:8px;
+      margin-bottom:1rem; font-size:0.8rem;
+    }
+    .stat { display:flex; align-items:center; gap:0.4rem; }
+    .stat .dot { width:10px; height:10px; border-radius:50%; }
+
+    .empty-state { text-align:center; padding:3rem; color:var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <span class="brand">⚔ שבצ"ק</span>
+  <a href="index.html"       class="nav-link">לוח</a>
+  <a href="shifts.html"      class="nav-link">שיבוץ</a>
+  <a href="soldiers.html"    class="nav-link">חיילים</a>
+  <a href="posts.html"       class="nav-link">עמדות</a>
+  <a href="admin_check.html" class="nav-link active">בקרה</a>
+  <a href="settings.html"    class="nav-link">הגדרות</a>
+</nav>
+
+<div class="main-wrap">
+
+  <!-- פקדים -->
+  <div class="control-row">
+    <div>
+      <label>מנוחה מינימלית לבדיקה</label>
+      <div class="time-group">
+        <input type="number" id="checkHours" class="form-control" style="width:65px;" value="4" min="0" max="48">
+        <span class="time-label">שעות</span>
+        <input type="number" id="checkMins"  class="form-control" style="width:65px;" value="0" min="0" max="59">
+        <span class="time-label">דקות</span>
+      </div>
+    </div>
+    <div>
+      <label>טווח בדיקה (שעות קדימה)</label>
+      <input type="number" id="rangeHours" class="form-control" style="width:80px;" value="24" min="1" max="168">
+    </div>
+    <div style="display:flex;gap:0.5rem;align-self:flex-end;">
+      <button class="btn-run" onclick="runCheck()">🔍 הפעל בדיקה</button>
+      <button class="btn-export" onclick="exportImage()">📷 ייצא לתמונה</button>
+    </div>
+  </div>
+
+  <!-- סיכום -->
+  <div class="summary-bar" id="summaryBar" style="display:none;">
+    <div class="stat"><span class="dot" style="background:#3fb950;"></span><span id="sumOk">0 תקין</span></div>
+    <div class="stat"><span class="dot" style="background:#fd7e14;"></span><span id="sumShort">0 חריגה</span></div>
+    <div class="stat"><span class="dot" style="background:#f85149;"></span><span id="sumForced">0 כפוי</span></div>
+    <div class="stat"><span class="dot" style="background:#7d8590;"></span><span id="sumEmpty">0 ריק</span></div>
+  </div>
+
+  <!-- דוח -->
+  <div id="reportWrap">
+    <div class="empty-state">
+      <div style="font-size:2rem;">🔍</div>
+      <div>הגדר פרמטרים ולחץ "הפעל בדיקה"</div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { getShifts, getPosts, getSoldiers, getRoles, getGroups, getSettings } from './js/firebase.js';
+import { formatTime, formatDateTime, formatMinutes } from './js/ui.js';
+
+let lastData = null;
+
+// ─── הרצת בדיקה ───────────────────────────────
+window.runCheck = async function() {
+  const minMins = parseInt(document.getElementById('checkHours').value || '4') * 60
+    + parseInt(document.getElementById('checkMins').value || '0');
+  const rangeHrs = parseInt(document.getElementById('rangeHours').value || '24');
+
+  const now = new Date();
+  const endTime = new Date(now.getTime() + rangeHrs * 3600000).toISOString();
+  const startTime = now.toISOString();
+
+  document.getElementById('reportWrap').innerHTML = `<div class="empty-state"><div class="spinner-border spinner-border-sm"></div><div style="margin-top:0.5rem;">טוען...</div></div>`;
+
+  const [shifts, posts, soldiers, roles, groups] = await Promise.all([
+    getShifts(), getPosts(), getSoldiers(), getRoles(), getGroups()
+  ]);
+
+  const postMap = {}, soldierMap = {}, roleMap = {}, groupMap = {};
+  posts.forEach(p => { postMap[p.id] = p; });
+  soldiers.forEach(s => { soldierMap[s.id] = s; });
+  roles.forEach(r => { roleMap[r.id] = r; });
+  groups.forEach(g => { groupMap[g.id] = g; });
+
+  // משמרות בטווח
+  const inRange = shifts
+    .filter(s => s.start_time >= startTime && s.start_time < endTime)
+    .sort((a,b) => a.start_time.localeCompare(b.start_time));
+
+  if (inRange.length === 0) {
+    document.getElementById('reportWrap').innerHTML = `<div class="empty-state"><div style="font-size:2rem;">📋</div><div>אין משמרות בטווח</div></div>`;
+    return;
+  }
+
+  let ok = 0, short = 0, forced = 0, empty = 0;
+
+  let html = `<table class="check-table" id="checkTable">
+    <thead><tr>
+      <th>עמדה</th>
+      <th>תקן</th>
+      <th>חייל</th>
+      <th>פק"לים</th>
+      <th>התחלה</th>
+      <th>סיום</th>
+      <th>מנוחה</th>
+      <th>סטטוס</th>
+    </tr></thead>
+    <tbody>`;
+
+  inRange.forEach(shift => {
+    const post = postMap[shift.post_id];
+    const postName = post?.name || '—';
+    const postColor = post?.post_color || '#6c757d';
+    const req = post?.requirements?.[shift.requirement_id];
+    const reqLabel = req?.label || '—';
+    const soldier = shift.soldier_id ? soldierMap[shift.soldier_id] : null;
+    const group = soldier?.group_id ? groupMap[soldier.group_id] : null;
+
+    let rowClass, restDisplay, restClass, statusText;
+
+    if (!shift.soldier_id) {
+      rowClass = 'row-empty';
+      restDisplay = '—';
+      restClass = '';
+      statusText = '<span style="color:#7d8590;">ריק</span>';
+      empty++;
+    } else if (shift.is_forced) {
+      rowClass = 'row-forced';
+      restDisplay = shift.rest_before_minutes !== null ? formatMinutes(shift.rest_before_minutes) : '—';
+      restClass = 'rest-forced';
+      statusText = '<span style="color:#f85149;font-weight:600;">⚠ כפוי</span>';
+      forced++;
+    } else if (shift.rest_before_minutes !== null && shift.rest_before_minutes < minMins) {
+      rowClass = 'row-short';
+      restDisplay = formatMinutes(shift.rest_before_minutes);
+      restClass = 'rest-short';
+      statusText = '<span style="color:#fd7e14;font-weight:600;">⚠ חריגה</span>';
+      short++;
+    } else if (shift.rest_before_minutes === null) {
+      rowClass = 'row-ok';
+      restDisplay = '—';
+      restClass = 'rest-new';
+      statusText = '<span style="color:#7d8590;">ראשון</span>';
+      ok++;
+    } else {
+      rowClass = 'row-ok';
+      restDisplay = formatMinutes(shift.rest_before_minutes);
+      restClass = 'rest-ok';
+      statusText = '<span style="color:#3fb950;">✓ תקין</span>';
+      ok++;
+    }
+
+    const soldierCell = soldier
+      ? (() => {
+          const dot = group ? `<span class="group-dot" style="background:${group.color_hex};margin-left:3px;"></span>` : '';
+          return `<div style="display:flex;align-items:center;">${dot}${soldier.first_name} ${soldier.last_name}</div>`;
+        })()
+      : '<span style="color:#7d8590;">—</span>';
+
+    const rolesCell = soldier?.roles?.length
+      ? soldier.roles.map(rid => roleMap[rid] ? `<span class="badge-role">${roleMap[rid].name}</span>` : '').join(' ')
+      : '—';
+
+    html += `<tr class="${rowClass}">
+      <td><span style="border-right:3px solid ${postColor};padding-right:6px;">${postName}</span></td>
+      <td style="color:#7d8590;">${reqLabel}</td>
+      <td>${soldierCell}</td>
+      <td>${rolesCell}</td>
+      <td style="font-variant-numeric:tabular-nums;">${formatTime(shift.start_time)}</td>
+      <td style="font-variant-numeric:tabular-nums;">${formatTime(shift.end_time)}</td>
+      <td class="${restClass}" style="font-variant-numeric:tabular-nums;">${restDisplay}</td>
+      <td>${statusText}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('reportWrap').innerHTML = html;
+
+  // סיכום
+  document.getElementById('summaryBar').style.display = 'flex';
+  document.getElementById('sumOk').textContent     = `${ok} תקין`;
+  document.getElementById('sumShort').textContent  = `${short} חריגה`;
+  document.getElementById('sumForced').textContent = `${forced} כפוי`;
+  document.getElementById('sumEmpty').textContent  = `${empty} ריק`;
+};
+
+// ─── ייצוא לתמונה ──────────────────────────
+window.exportImage = async function() {
+  const table = document.getElementById('checkTable');
+  if (!table) { alert('הפעל בדיקה תחילה'); return; }
+  try {
+    const canvas = await html2canvas(document.getElementById('reportWrap'), {
+      backgroundColor: '#0d1117',
+      scale: 2
+    });
+    const link = document.createElement('a');
+    link.download = `בקרת-מנוחה-${new Date().toLocaleDateString('he-IL')}.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+  } catch (err) {
+    alert('שגיאה בייצוא: ' + err.message);
+  }
+};
+
+// הרצה אוטומטית בטעינה
+window.runCheck();
+</script>
+</body>
+</html>

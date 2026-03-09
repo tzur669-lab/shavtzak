@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>שבצ"ק - חיילים</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.rtl.min.css">
+  <style>
+    :root { --bg-base:#0d1117; --bg-card:#161b22; --bg-row:#1e2530; --border:#30363d; --text-main:#e6edf3; --text-muted:#7d8590; --accent:#1f6feb; }
+    body { background:var(--bg-base); color:var(--text-main); font-family:'Segoe UI','Arial Hebrew',Arial,sans-serif; font-size:0.88rem; }
+    .nav-bar { background:var(--bg-card); border-bottom:1px solid var(--border); padding:0.5rem 1rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; position:sticky; top:0; z-index:100; }
+    .nav-bar .brand { font-size:1.1rem; font-weight:700; color:var(--accent); margin-left:auto; }
+    .nav-link { color:var(--text-muted)!important; padding:0.35rem 0.65rem!important; border-radius:6px; font-size:0.82rem; text-decoration:none; transition:background 0.15s,color 0.15s; }
+    .nav-link:hover { background:rgba(255,255,255,0.07); color:var(--text-main)!important; }
+    .nav-link.active { background:rgba(31,111,235,0.2); color:#58a6ff!important; }
+
+    .main-wrap { padding:1rem; }
+
+    /* toolbar */
+    .toolbar { display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap; align-items:center; }
+    .search-input {
+      background:#161b22; border:1px solid var(--border); color:var(--text-main);
+      border-radius:6px; padding:0.45rem 0.75rem; font-size:0.85rem; flex:1; min-width:180px;
+    }
+    .search-input:focus { outline:none; border-color:var(--accent); }
+    .btn-add {
+      background:var(--accent); color:#fff; border:none;
+      padding:0.45rem 1rem; border-radius:6px; font-size:0.85rem; cursor:pointer;
+      white-space:nowrap; transition:background 0.15s;
+    }
+    .btn-add:hover { background:#388bfd; }
+
+    /* טבלת חיילים */
+    .soldiers-table { width:100%; border-collapse:separate; border-spacing:0; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .soldiers-table thead th { background:var(--bg-card); padding:0.5rem 0.75rem; font-size:0.78rem; color:var(--text-muted); font-weight:600; border-bottom:1px solid var(--border); white-space:nowrap; }
+    .soldiers-table tbody tr { background:var(--bg-row); border-bottom:1px solid var(--border); transition:background 0.15s; }
+    .soldiers-table tbody tr:last-child { border-bottom:none; }
+    .soldiers-table tbody tr:hover { background:rgba(255,255,255,0.04); }
+    .soldiers-table td { padding:0.5rem 0.75rem; vertical-align:middle; }
+
+    .group-dot { width:10px; height:10px; border-radius:50%; display:inline-block; flex-shrink:0; }
+    .badge-role { background:rgba(255,193,7,0.12); color:#e3b341; border:1px solid rgba(255,193,7,0.25); padding:1px 5px; border-radius:4px; font-size:0.68rem; }
+
+    /* toggle active */
+    .toggle-btn {
+      background:none; border:1px solid var(--border); border-radius:20px;
+      padding:2px 10px; font-size:0.75rem; cursor:pointer; transition:all 0.2s;
+    }
+    .toggle-btn.active { background:rgba(35,134,54,0.2); border-color:#238636; color:#3fb950; }
+    .toggle-btn.inactive { background:rgba(220,53,69,0.12); border-color:rgba(220,53,69,0.4); color:#ea868f; }
+
+    /* action btns */
+    .action-btn { background:none; border:none; cursor:pointer; padding:3px 6px; border-radius:4px; font-size:0.82rem; transition:background 0.15s; }
+    .action-btn:hover { background:rgba(255,255,255,0.1); }
+
+    /* modal */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:#1e2530; border:1px solid var(--border); border-radius:12px; padding:1.5rem; width:90%; max-width:420px; max-height:85vh; overflow-y:auto; }
+    .modal-title { font-size:1rem; font-weight:700; color:#58a6ff; margin-bottom:1.25rem; }
+    label { color:var(--text-muted); font-size:0.8rem; margin-bottom:0.2rem; display:block; }
+    .form-control, .form-select { background:#0d1117; border:1px solid var(--border); color:var(--text-main); border-radius:6px; padding:0.4rem 0.65rem; width:100%; font-size:0.85rem; margin-bottom:0.85rem; }
+    .form-control:focus, .form-select:focus { outline:none; border-color:var(--accent); }
+    .form-select option { background:#1e2530; }
+    .btn-save { background:var(--accent); color:#fff; border:none; padding:0.5rem 1.25rem; border-radius:6px; cursor:pointer; font-size:0.88rem; }
+    .btn-cancel { background:#1e2530; color:var(--text-muted); border:1px solid var(--border); padding:0.5rem 1.25rem; border-radius:6px; cursor:pointer; font-size:0.88rem; }
+
+    /* roles checkboxes */
+    .roles-grid { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.85rem; }
+    .role-check { display:flex; align-items:center; gap:0.3rem; background:#0d1117; border:1px solid var(--border); border-radius:5px; padding:3px 8px; cursor:pointer; font-size:0.8rem; user-select:none; transition:all 0.15s; }
+    .role-check.selected { border-color:#1f6feb; background:rgba(31,111,235,0.15); color:#58a6ff; }
+    .role-check input { display:none; }
+
+    .empty-state { text-align:center; padding:3rem; color:var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <span class="brand">⚔ שבצ"ק</span>
+  <a href="index.html"       class="nav-link">לוח</a>
+  <a href="shifts.html"      class="nav-link">שיבוץ</a>
+  <a href="soldiers.html"    class="nav-link active">חיילים</a>
+  <a href="posts.html"       class="nav-link">עמדות</a>
+  <a href="admin_check.html" class="nav-link">בקרה</a>
+  <a href="settings.html"    class="nav-link">הגדרות</a>
+</nav>
+
+<div class="main-wrap">
+  <div class="toolbar">
+    <input class="search-input" type="text" id="searchInput" placeholder="🔍 חיפוש חייל..." oninput="filterTable()">
+    <a href="bulk_add.html" style="background:#1e2530;color:#7d8590;border:1px solid #30363d;padding:0.45rem 0.75rem;border-radius:6px;font-size:0.82rem;text-decoration:none;">+ המונית</a>
+    <button class="btn-add" onclick="openModal()">+ הוסף חייל</button>
+  </div>
+
+  <div id="tableWrap">
+    <div class="empty-state"><div style="font-size:2rem;">👤</div><div>טוען...</div></div>
+  </div>
+</div>
+
+<!-- מודל הוספה/עריכה -->
+<div class="modal-overlay" id="soldierModal">
+  <div class="modal-box">
+    <div class="modal-title" id="modalTitle">הוסף חייל</div>
+
+    <label>שם פרטי</label>
+    <input type="text" id="fldFirstName" class="form-control" placeholder="ישראל">
+
+    <label>שם משפחה</label>
+    <input type="text" id="fldLastName" class="form-control" placeholder="ישראלי">
+
+    <label>מספר אישי</label>
+    <input type="text" id="fldSerial" class="form-control" placeholder="1234567">
+
+    <label>מחלקה</label>
+    <select id="fldGroup" class="form-select"></select>
+
+    <label>פק"לים</label>
+    <div class="roles-grid" id="rolesGrid"></div>
+
+    <label>זמן חזרה לשירות (אם לא פעיל)</label>
+    <input type="datetime-local" id="fldReturnTime" class="form-control">
+
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.5rem;">
+      <button class="btn-cancel" onclick="closeModal()">ביטול</button>
+      <button class="btn-save"   onclick="saveSoldier()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { getSoldiers, getGroups, getRoles, addSoldier, updateSoldier, deleteSoldier, setSoldierActive } from './js/firebase.js';
+import { showToast, confirmDialog, formatDateTime, toLocalInputValue, fromLocalInputValue } from './js/ui.js';
+
+let soldiers = [], groups = [], roles = [];
+let editingId = null;
+
+// ─── טעינה ────────────────────────────────────
+async function loadAll() {
+  [soldiers, groups, roles] = await Promise.all([getSoldiers(), getGroups(), getRoles()]);
+  renderTable();
+}
+
+// ─── טבלה ─────────────────────────────────────
+function renderTable(filter = '') {
+  const q = filter.trim().toLowerCase();
+  const filtered = q
+    ? soldiers.filter(s =>
+        `${s.first_name} ${s.last_name} ${s.serial_number}`.toLowerCase().includes(q)
+      )
+    : soldiers;
+
+  if (filtered.length === 0) {
+    document.getElementById('tableWrap').innerHTML = `<div class="empty-state"><div style="font-size:2rem;">👤</div><div>אין חיילים${q ? ' תואמים' : ''}</div></div>`;
+    return;
+  }
+
+  const groupMap = {}, roleMap = {};
+  groups.forEach(g => { groupMap[g.id] = g; });
+  roles.forEach(r => { roleMap[r.id] = r; });
+
+  let html = `<table class="soldiers-table">
+    <thead><tr>
+      <th>שם</th><th>מ"א</th><th>מחלקה</th><th>פק"לים</th><th>סטטוס</th><th></th>
+    </tr></thead><tbody>`;
+
+  filtered.forEach(s => {
+    const group = groupMap[s.group_id];
+    const roleNames = (s.roles || []).map(rid => {
+      const r = roleMap[rid];
+      return r ? `<span class="badge-role">${r.name}</span>` : '';
+    }).join(' ');
+    const dot = group
+      ? `<span class="group-dot" style="background:${group.color_hex};margin-left:4px;"></span>`
+      : '';
+
+    const activeBtn = s.is_active
+      ? `<button class="toggle-btn active" onclick="toggleActive('${s.id}',false)">פעיל</button>`
+      : `<button class="toggle-btn inactive" onclick="toggleActive('${s.id}',true)">לא פעיל</button>`;
+
+    const returnStr = s.return_to_service_time
+      ? `<div style="font-size:0.7rem;color:#7d8590;">חוזר: ${formatDateTime(s.return_to_service_time)}</div>` : '';
+
+    html += `<tr>
+      <td><div style="display:flex;align-items:center;">${dot}<span>${s.first_name} ${s.last_name}</span></div></td>
+      <td style="color:#7d8590;">${s.serial_number || '—'}</td>
+      <td>${group ? group.name : '—'}</td>
+      <td>${roleNames || '—'}</td>
+      <td>${activeBtn}${returnStr}</td>
+      <td style="white-space:nowrap;">
+        <button class="action-btn" title="עריכה" onclick="openModal('${s.id}')">✏️</button>
+        <button class="action-btn" title="מחיקה" onclick="deleteSoldierUI('${s.id}')">🗑️</button>
+      </td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('tableWrap').innerHTML = html;
+}
+
+// ─── חיפוש ────────────────────────────────────
+window.filterTable = function() {
+  renderTable(document.getElementById('searchInput').value);
+};
+
+// ─── פתיחת מודל ───────────────────────────────
+window.openModal = function(id = null) {
+  editingId = id;
+  document.getElementById('modalTitle').textContent = id ? 'עריכת חייל' : 'הוסף חייל';
+
+  // groups
+  const groupSel = document.getElementById('fldGroup');
+  groupSel.innerHTML = '<option value="">— ללא מחלקה —</option>';
+  groups.forEach(g => {
+    groupSel.innerHTML += `<option value="${g.id}">${g.name}</option>`;
+  });
+
+  // roles
+  const grid = document.getElementById('rolesGrid');
+  grid.innerHTML = '';
+  roles.forEach(r => {
+    const div = document.createElement('label');
+    div.className = 'role-check';
+    div.innerHTML = `<input type="checkbox" value="${r.id}"> ${r.name}`;
+    div.querySelector('input').onchange = function() {
+      div.classList.toggle('selected', this.checked);
+    };
+    grid.appendChild(div);
+  });
+
+  if (id) {
+    const s = soldiers.find(x => x.id === id);
+    if (s) {
+      document.getElementById('fldFirstName').value = s.first_name || '';
+      document.getElementById('fldLastName').value  = s.last_name  || '';
+      document.getElementById('fldSerial').value    = s.serial_number || '';
+      document.getElementById('fldGroup').value     = s.group_id || '';
+      document.getElementById('fldReturnTime').value = s.return_to_service_time
+        ? toLocalInputValue(s.return_to_service_time) : '';
+
+      // סמן פק"לים
+      (s.roles || []).forEach(rid => {
+        const chk = grid.querySelector(`input[value="${rid}"]`);
+        if (chk) { chk.checked = true; chk.closest('label').classList.add('selected'); }
+      });
+    }
+  } else {
+    document.getElementById('fldFirstName').value = '';
+    document.getElementById('fldLastName').value  = '';
+    document.getElementById('fldSerial').value    = '';
+    document.getElementById('fldGroup').value     = '';
+    document.getElementById('fldReturnTime').value = '';
+  }
+
+  document.getElementById('soldierModal').classList.add('open');
+};
+
+window.closeModal = function() {
+  document.getElementById('soldierModal').classList.remove('open');
+  editingId = null;
+};
+
+// ─── שמירה ────────────────────────────────────
+window.saveSoldier = async function() {
+  const firstName = document.getElementById('fldFirstName').value.trim();
+  const lastName  = document.getElementById('fldLastName').value.trim();
+  if (!firstName || !lastName) { showToast('נא להזין שם פרטי ושם משפחה', 'warning'); return; }
+
+  const selectedRoles = [...document.querySelectorAll('#rolesGrid input:checked')].map(c => c.value);
+  const returnTimeLocal = document.getElementById('fldReturnTime').value;
+
+  const data = {
+    first_name: firstName,
+    last_name: lastName,
+    serial_number: document.getElementById('fldSerial').value.trim(),
+    group_id: document.getElementById('fldGroup').value || null,
+    roles: selectedRoles,
+    return_to_service_time: returnTimeLocal ? fromLocalInputValue(returnTimeLocal) : null,
+    is_active: editingId ? (soldiers.find(s => s.id === editingId)?.is_active ?? true) : true
+  };
+
+  try {
+    if (editingId) {
+      await updateSoldier(editingId, data);
+      showToast('חייל עודכן', 'success');
+    } else {
+      await addSoldier(data);
+      showToast('חייל נוסף', 'success');
+    }
+    closeModal();
+    await loadAll();
+  } catch (err) {
+    showToast('שגיאה: ' + err.message, 'error');
+  }
+};
+
+// ─── החלפת פעיל ───────────────────────────────
+window.toggleActive = async function(id, newState) {
+  try {
+    await setSoldierActive(id, newState, null);
+    showToast(newState ? 'חייל הוחזר לפעילות' : 'חייל הוצא מפעילות', 'info');
+    await loadAll();
+  } catch (err) {
+    showToast('שגיאה: ' + err.message, 'error');
+  }
+};
+
+// ─── מחיקה ────────────────────────────────────
+window.deleteSoldierUI = async function(id) {
+  const s = soldiers.find(x => x.id === id);
+  if (!await confirmDialog(`למחוק את ${s?.first_name} ${s?.last_name}?`, 'מחק')) return;
+  try {
+    await deleteSoldier(id);
+    showToast('חייל נמחק', 'success');
+    await loadAll();
+  } catch (err) {
+    showToast('שגיאה: ' + err.message, 'error');
+  }
+};
+
+// ─── סגירה בקליק מחוץ למודל ──────────────────
+document.getElementById('soldierModal').addEventListener('click', function(e) {
+  if (e.target === this) window.closeModal();
+});
+
+loadAll();
+</script>
+</body>
+</html>

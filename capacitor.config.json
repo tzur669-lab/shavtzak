@@ -1,0 +1,15 @@
+{
+  "appId": "il.military.shavtzak",
+  "appName": "שבצק",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "minWebViewVersion": 60
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#0d1117"
+    }
+  }
+}
