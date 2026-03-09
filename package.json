@@ -1,15 +1,14 @@
 {
   "name": "shavtzak",
-  "version": "1.0.0",
-  "description": "אפליקציית שבצ\"ק - ניהול שמירות צבאיות",
+  "version": "2.0.0",
+  "description": "מערכת ניהול שמירות צבאיות",
+  "main": "index.js",
   "scripts": {
     "build": "npx cap sync android"
   },
   "dependencies": {
     "@capacitor/android": "^5.0.0",
-    "@capacitor/core": "^5.0.0"
-  },
-  "devDependencies": {
+    "@capacitor/core": "^5.0.0",
     "@capacitor/cli": "^5.0.0"
   }
 }
