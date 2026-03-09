@@ -21,6 +21,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: התקנת Android Build Tools
+        run: |
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
+
       - name: התקנת תלויות
         run: npm install
 
@@ -47,6 +51,8 @@ jobs:
           alias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"
 
       - name: פרסום GitHub Release
         uses: softprops/action-gh-release@v2
