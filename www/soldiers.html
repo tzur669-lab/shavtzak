@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>שבצ"ק - חיילים</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.rtl.min.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    .soldier-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow var(--transition), border-color var(--transition);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .soldier-card::before {
+      content: '';
+      position: absolute;
+      right: 0; top: 0; bottom: 0;
+      width: 3px;
+    }
+    .soldier-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-focus); }
+    .soldier-card.inactive { opacity: 0.6; }
+
+    .soldier-avatar {
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+    .soldier-info  { flex: 1; min-width: 0; }
+    .soldier-name  { font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+    .soldier-meta  { font-size: 0.72rem; color: var(--text-muted); display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 2px; }
+    .soldier-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; }
+    .shifts-count  {
+      font-size: 0.72rem; color: var(--text-muted);
+      background: var(--bg-row-alt); border: 1px solid var(--border);
+      border-radius: 20px; padding: 1px 7px;
+    }
+  </style>
+</head>
+<body class="page-enter">
+
+<header class="page-header">
+  <div>
+    <div class="page-title">👤 חיילים</div>
+    <div class="page-subtitle" id="countLabel">טוען...</div>
+  </div>
+  <div style="display:flex;gap:0.5rem;">
+    <a href="bulk_add.html" class="btn btn-ghost btn-sm">+ המוני</a>
+    <button class="btn btn-primary btn-sm" onclick="openModal()">+ הוסף</button>
+  </div>
+</header>
+
+<div style="padding:0.75rem 0.85rem 0.25rem;">
+  <div class="search-bar">
+    <span>🔍</span>
+    <input type="text" id="searchInput" placeholder="חפש לפי שם או מזהה..." oninput="filterSoldiers()">
+  </div>
+</div>
+
+<div style="padding:0 0.85rem 0.5rem;display:flex;gap:0.4rem;align-items:center;">
+  <span style="font-size:0.75rem;color:var(--text-muted);">סינון:</span>
+  <div class="filter-chips">
+    <button class="chip active" onclick="setFilter('all',this)">הכל</button>
+    <button class="chip" onclick="setFilter('active',this)">פעילים</button>
+    <button class="chip" onclick="setFilter('inactive',this)">לא פעילים</button>
+  </div>
+</div>
+
+<div class="page-wrap" id="soldiersList" style="padding-top:0;">
+  <div class="empty-state"><div class="spinner" style="margin:auto;"></div></div>
+</div>
+
+<!-- מודל הוספה/עריכה -->
+<div class="modal-overlay" id="soldierModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalTitle">➕ הוסף חייל</div>
+
+    <!-- מזהה חייל -->
+    <div class="form-group">
+      <label class="form-label">מזהה חייל (מספר בתור)</label>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <input type="number" id="fldNumber" class="form-input" style="width:100px;" min="1">
+        <span style="font-size:0.75rem;color:var(--text-muted);">ניתן לשינוי</span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+      <div class="form-group">
+        <label class="form-label">שם פרטי</label>
+        <input type="text" id="fldFirst" class="form-input" placeholder="ישראל">
+      </div>
+      <div class="form-group">
+        <label class="form-label">שם משפחה</label>
+        <input type="text" id="fldLast" class="form-input" placeholder="ישראלי">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">מחלקה</label>
+      <select id="fldGroup" class="form-select">
+        <option value="">— ללא מחלקה —</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">תפקידים / פק"לים</label>
+      <div id="rolesGrid" style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.25rem;min-height:24px;"></div>
+    </div>
+
+    <!-- מנוחה אישית -->
+    <div class="form-group">
+      <label class="form-label">מנוחה מינימלית אישית</label>
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <input type="number" id="fldRestHours" class="form-input" style="width:80px;" min="0" max="24" placeholder="—">
+        <span style="font-size:0.82rem;color:var(--text-muted);">שעות (ריק = לפי הגלובלי)</span>
+      </div>
+      <div style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;">
+        ערך זה דורס את הגלובלי שמוגדר בדף השיבוץ
+      </div>
+    </div>
+
+    <!-- לא פעיל -->
+    <div id="inactiveGroup" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+        <div class="form-group">
+          <label class="form-label">סיבת היעדרות</label>
+          <select id="fldReason" class="form-select">
+            <option value="">— בחר —</option>
+            <option value="חופשה">חופשה</option>
+            <option value="מחלה">מחלה</option>
+            <option value="משימה">משימה</option>
+            <option value="אחר">אחר</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">זמן חזרה</label>
+          <input type="datetime-local" id="fldReturn" class="form-input">
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
+      <button class="btn btn-primary" style="flex:1;" onclick="saveSoldier()">💾 שמור</button>
+      <button class="btn btn-secondary" onclick="closeModal()">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- מודל פרטי חייל -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div id="detailContent"></div>
+    <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm"  id="detailEditBtn">✏️ ערוך</button>
+      <button class="btn btn-danger btn-sm"   id="detailDeleteBtn">🗑️ מחק</button>
+      <button class="btn btn-secondary btn-sm" id="detailToggleBtn"></button>
+      <button class="btn btn-ghost btn-sm" style="margin-right:auto;" onclick="closeDetail()">סגור</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import {
+  getSoldiers, getGroups, getRoles, getShifts, getSettings,
+  addSoldier, updateSoldier, deleteSoldier, setSoldierActive,
+  getNextSoldierNumber
+} from './js/firebase.js';
+import {
+  initPage, showToast, confirmDialog,
+  formatDateTime, formatMinutes, formatDate,
+  toLocalInputValue, fromLocalInputValue,
+  groupDot
+} from './js/ui.js';
+
+initPage();
+
+let soldiers = [], groups = [], roles = [], shifts = [], settings = {};
+let editingId    = null;
+let activeFilter = 'all';
+let searchQ      = '';
+
+// ── טעינה ────────────────────────────────────
+async function loadAll() {
+  [soldiers, groups, roles, shifts, settings] = await Promise.all([
+    getSoldiers(), getGroups(), getRoles(), getShifts(), getSettings()
+  ]);
+  soldiers.sort((a, b) => {
+    if (a.is_active !== b.is_active) return b.is_active - a.is_active;
+    return (parseInt(a.soldier_number) || 999) - (parseInt(b.soldier_number) || 999);
+  });
+  renderList();
+}
+
+// ── מידע עזר ─────────────────────────────────
+function getShiftsThisWeek(soldierId) {
+  const weekAgo = new Date(Date.now() - 7 * 24 * 3600000).toISOString();
+  return shifts.filter(s => s.soldier_id === soldierId && s.start_time >= weekAgo).length;
+}
+
+function getLastRestMins(soldierId) {
+  const mine = shifts
+    .filter(s => s.soldier_id === soldierId)
+    .sort((a, b) => b.end_time.localeCompare(a.end_time));
+  if (mine.length < 2) return null;
+  return Math.round((new Date(mine[0].start_time) - new Date(mine[1].end_time)) / 60000);
+}
+
+function getSoldierStatus(s) {
+  if (!s.is_active) return { dot: 'red', label: 'לא פעיל' };
+  const now = new Date().toISOString();
+  const inShift = shifts.some(sh =>
+    sh.soldier_id === s.id && sh.start_time <= now && sh.end_time > now
+  );
+  if (inShift) return { dot: 'yellow', label: 'בשמירה' };
+  return { dot: 'green', label: 'זמין' };
+}
+
+// ── רינדור רשימה ─────────────────────────────
+function renderList() {
+  const groupMap = {}, roleMap = {};
+  groups.forEach(g => { groupMap[g.id] = g; });
+  roles.forEach(r => { roleMap[r.id] = r; });
+
+  let filtered = soldiers;
+  if (activeFilter === 'active')   filtered = filtered.filter(s =>  s.is_active);
+  if (activeFilter === 'inactive') filtered = filtered.filter(s => !s.is_active);
+  if (searchQ) filtered = filtered.filter(s =>
+    `${s.first_name} ${s.last_name} ${s.soldier_number}`.toLowerCase().includes(searchQ)
+  );
+
+  document.getElementById('countLabel').textContent = `${filtered.length} חיילים`;
+
+  if (filtered.length === 0) {
+    document.getElementById('soldiersList').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">👤</div>
+        <div class="empty-title">אין חיילים${searchQ ? ' תואמים' : ''}</div>
+        <div class="empty-desc">הוסף חיילים כדי להתחיל</div>
+      </div>`;
+    return;
+  }
+
+  const globalMinRest = settings.min_rest_minutes ?? 240;
+  let html = '<div style="display:flex;flex-direction:column;gap:0.5rem;">';
+
+  filtered.forEach(s => {
+    const group    = groupMap[s.group_id];
+    const status   = getSoldierStatus(s);
+    const weekCount = getShiftsThisWeek(s.id);
+    const lastRest  = getLastRestMins(s.id);
+    const avatarColor = group?.color_hex || '#9ca3af';
+    const initials    = `${s.first_name?.[0] || '?'}${s.last_name?.[0] || ''}`;
+    const roleNames   = (s.roles || []).map(rid => roleMap[rid]?.name).filter(Boolean);
+    const personalRest = s.min_rest_minutes;
+    const minRest = personalRest ?? globalMinRest;
+    const restColor = (lastRest !== null && lastRest < minRest) ? 'var(--red)' : 'var(--green)';
+
+    html += `
+      <div class="soldier-card ${!s.is_active ? 'inactive' : ''}"
+           onclick="openDetail('${s.id}')"
+           style="border-right-color:${avatarColor};">
+        <div style="position:absolute;right:0;top:0;bottom:0;width:3px;background:${avatarColor};border-radius:0 var(--radius-lg) var(--radius-lg) 0;"></div>
+        <div class="soldier-avatar" style="background:${avatarColor};">${initials}</div>
+        <div class="soldier-info">
+          <div class="soldier-name">
+            <span class="status-dot ${status.dot}"></span>
+            <span style="color:var(--text-muted);font-size:0.72rem;font-weight:400;">#${s.soldier_number || '?'}</span>
+            ${s.first_name} ${s.last_name}
+          </div>
+          <div class="soldier-meta">
+            ${group ? `<span style="color:${group.color_hex};font-weight:600;">${group.name}</span>` : ''}
+            ${roleNames.map(n => `<span class="badge badge-yellow" style="font-size:0.65rem;">${n}</span>`).join('')}
+            ${personalRest ? `<span class="badge badge-blue" style="font-size:0.65rem;">מנוחה: ${Math.round(personalRest/60)}ש'</span>` : ''}
+            ${!s.is_active && s.absence_reason ? `<span>${s.absence_reason}</span>` : ''}
+          </div>
+        </div>
+        <div class="soldier-right">
+          <span class="shifts-count">⚔ ${weekCount} השבוע</span>
+          ${lastRest !== null
+            ? `<span style="font-size:0.7rem;color:${restColor};">מנוחה: ${formatMinutes(lastRest)}</span>`
+            : ''}
+        </div>
+      </div>`;
+  });
+
+  html += '</div>';
+  document.getElementById('soldiersList').innerHTML = html;
+}
+
+window.setFilter = (f, btn) => {
+  activeFilter = f;
+  document.querySelectorAll('.filter-chips .chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  renderList();
+};
+
+window.filterSoldiers = () => {
+  searchQ = document.getElementById('searchInput').value.trim().toLowerCase();
+  renderList();
+};
+
+// ── מודל פרטים ───────────────────────────────
+window.openDetail = function(id) {
+  const s = soldiers.find(x => x.id === id);
+  if (!s) return;
+
+  const groupMap = {}, roleMap = {};
+  groups.forEach(g => { groupMap[g.id] = g; });
+  roles.forEach(r => { roleMap[r.id] = r; });
+
+  const group     = groupMap[s.group_id];
+  const weekCount = getShiftsThisWeek(s.id);
+  const totalShifts = shifts.filter(sh => sh.soldier_id === id).length;
+  const personalRest = s.min_rest_minutes;
+  const globalMinRest = settings.min_rest_minutes ?? 240;
+
+  const recentShifts = shifts
+    .filter(sh => sh.soldier_id === id)
+    .sort((a, b) => b.start_time.localeCompare(a.start_time))
+    .slice(0, 5);
+
+  document.getElementById('detailContent').innerHTML = `
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;">
+      <div class="soldier-avatar" style="background:${group?.color_hex || '#9ca3af'};width:52px;height:52px;font-size:1.2rem;">
+        ${s.first_name?.[0] || '?'}${s.last_name?.[0] || ''}
+      </div>
+      <div>
+        <div style="font-size:1.05rem;font-weight:700;">${s.first_name} ${s.last_name}</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);">מזהה #${s.soldier_number || '—'}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.85rem;">
+      <span class="badge ${s.is_active ? 'badge-green' : 'badge-red'}">${s.is_active ? 'פעיל' : 'לא פעיל'}</span>
+      ${group ? `<span class="badge" style="background:${group.color_hex}22;color:${group.color_hex};border:1px solid ${group.color_hex}44;">${group.name}</span>` : ''}
+      ${(s.roles || []).map(rid => roleMap[rid] ? `<span class="badge badge-yellow">${roleMap[rid].name}</span>` : '').join('')}
+      ${personalRest ? `<span class="badge badge-blue">מנוחה: ${Math.round(personalRest/60)}ש' (אישי)</span>` : `<span class="badge badge-gray">מנוחה: ${Math.round(globalMinRest/60)}ש' (גלובלי)</span>`}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.85rem;">
+      <div class="stat-card"><div class="stat-value">${weekCount}</div><div class="stat-label">משמרות השבוע</div></div>
+      <div class="stat-card"><div class="stat-value">${totalShifts}</div><div class="stat-label">סה"כ משמרות</div></div>
+    </div>
+    ${recentShifts.length > 0 ? `
+      <div style="font-size:0.72rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:0.4rem;">5 משמרות אחרונות</div>
+      ${recentShifts.map(sh => `
+        <div style="display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid var(--border);font-size:0.8rem;">
+          <span>${formatDate(sh.start_time)}</span>
+          <span style="color:var(--text-muted);">${formatMinutes(Math.round((new Date(sh.end_time) - new Date(sh.start_time)) / 60000))}</span>
+        </div>`).join('')}` : ''}
+  `;
+
+  const toggleBtn = document.getElementById('detailToggleBtn');
+  toggleBtn.textContent  = s.is_active ? '⛔ הוצא מפעילות' : '✅ החזר לפעילות';
+  toggleBtn.className    = `btn btn-sm ${s.is_active ? 'btn-danger' : 'btn-success'}`;
+  toggleBtn.onclick      = () => toggleActiveUI(id, !s.is_active);
+
+  document.getElementById('detailEditBtn').onclick   = () => { closeDetail(); openModal(id); };
+  document.getElementById('detailDeleteBtn').onclick = () => deleteSoldierUI(id);
+  document.getElementById('detailModal').classList.add('open');
+};
+
+window.closeDetail = () => document.getElementById('detailModal').classList.remove('open');
+
+// ── הוצא/החזר מפעילות ────────────────────────
+window.toggleActiveUI = async function(id, newState) {
+  if (!newState) {
+    // בחר סיבה
+    const reasons = ['חופשה', 'מחלה', 'משימה', 'אחר'];
+    const reason  = await new Promise(resolve => {
+      const ov = document.createElement('div');
+      ov.className = 'modal-overlay open';
+      ov.style.alignItems = 'center';
+      ov.innerHTML = `
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xl);
+          padding:1.5rem;width:88%;max-width:280px;text-align:center;box-shadow:var(--shadow-lg);">
+          <div style="font-size:0.95rem;font-weight:700;margin-bottom:1rem;">סיבת ההיעדרות</div>
+          <div style="display:flex;flex-direction:column;gap:0.4rem;">
+            ${reasons.map(r =>
+              `<button class="btn btn-secondary"
+                onclick="this.closest('.modal-overlay').remove();window._rResolve('${r}')">${r}</button>`
+            ).join('')}
+            <button class="btn btn-ghost"
+              onclick="this.closest('.modal-overlay').remove();window._rResolve(null)">ביטול</button>
+          </div>
+        </div>`;
+      document.body.appendChild(ov);
+      window._rResolve = resolve;
+    });
+    if (!reason) return;
+    await updateSoldier(id, { is_active: false, absence_reason: reason, return_to_service_time: null });
+  } else {
+    await updateSoldier(id, { is_active: true, absence_reason: null, return_to_service_time: null });
+  }
+  showToast(newState ? '✅ חייל הוחזר לפעילות' : '⛔ חייל הוצא מפעילות', 'info');
+  closeDetail();
+  await loadAll();
+};
+
+// ── מודל הוספה/עריכה ─────────────────────────
+window.openModal = async function(id = null) {
+  editingId = id;
+  document.getElementById('modalTitle').textContent = id ? '✏️ ערוך חייל' : '➕ הוסף חייל';
+
+  // מחלקות
+  const sel = document.getElementById('fldGroup');
+  sel.innerHTML = '<option value="">— ללא מחלקה —</option>' +
+    groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+
+  // פק"לים
+  const grid = document.getElementById('rolesGrid');
+  grid.innerHTML = '';
+  if (roles.length === 0) {
+    grid.innerHTML = '<span style="font-size:0.78rem;color:var(--text-muted);">אין תפקידים — הוסף בהגדרות</span>';
+  } else {
+    roles.forEach(r => {
+      const lbl = document.createElement('label');
+      lbl.style.cssText = `display:flex;align-items:center;gap:4px;background:var(--bg-row-alt);
+        border:1.5px solid var(--border);border-radius:20px;padding:3px 10px;
+        cursor:pointer;font-size:0.8rem;transition:all 0.15s;user-select:none;`;
+      lbl.innerHTML = `<input type="checkbox" value="${r.id}" style="display:none;"> ${r.name}`;
+      lbl.querySelector('input').onchange = function() {
+        lbl.style.borderColor = this.checked ? 'var(--accent)' : 'var(--border)';
+        lbl.style.background  = this.checked ? 'var(--accent-light)' : 'var(--bg-row-alt)';
+        lbl.style.color       = this.checked ? 'var(--accent-text)' : '';
+      };
+      grid.appendChild(lbl);
+    });
+  }
+
+  if (id) {
+    // עריכה — טען נתוני חייל קיים
+    const s = soldiers.find(x => x.id === id);
+    if (s) {
+      document.getElementById('fldNumber').value    = s.soldier_number || '';
+      document.getElementById('fldFirst').value     = s.first_name  || '';
+      document.getElementById('fldLast').value      = s.last_name   || '';
+      document.getElementById('fldGroup').value     = s.group_id    || '';
+      document.getElementById('fldRestHours').value = s.min_rest_minutes
+        ? Math.round(s.min_rest_minutes / 60) : '';
+      document.getElementById('fldReason').value    = s.absence_reason || '';
+      document.getElementById('fldReturn').value    = s.return_to_service_time
+        ? toLocalInputValue(s.return_to_service_time) : '';
+      document.getElementById('inactiveGroup').style.display = s.is_active ? 'none' : 'block';
+
+      (s.roles || []).forEach(rid => {
+        const chk = grid.querySelector(`input[value="${rid}"]`);
+        if (chk) { chk.checked = true; chk.dispatchEvent(new Event('change')); }
+      });
+    }
+  } else {
+    // הוספה — מספר אוטומטי
+    const nextNum = await getNextSoldierNumber();
+    document.getElementById('fldNumber').value    = nextNum;
+    document.getElementById('fldFirst').value     = '';
+    document.getElementById('fldLast').value      = '';
+    document.getElementById('fldGroup').value     = '';
+    document.getElementById('fldRestHours').value = '';
+    document.getElementById('fldReason').value    = '';
+    document.getElementById('fldReturn').value    = '';
+    document.getElementById('inactiveGroup').style.display = 'none';
+  }
+
+  document.getElementById('soldierModal').classList.add('open');
+};
+
+window.closeModal = () => document.getElementById('soldierModal').classList.remove('open');
+
+window.saveSoldier = async function() {
+  const first = document.getElementById('fldFirst').value.trim();
+  const last  = document.getElementById('fldLast').value.trim();
+  if (!first || !last) { showToast('נא להזין שם פרטי ושם משפחה', 'warning'); return; }
+
+  const selRoles   = [...document.querySelectorAll('#rolesGrid input:checked')].map(c => c.value);
+  const returnVal  = document.getElementById('fldReturn').value;
+  const restHoursVal = document.getElementById('fldRestHours').value;
+  const minRest    = restHoursVal ? parseInt(restHoursVal) * 60 : null;
+  const numVal     = parseInt(document.getElementById('fldNumber').value);
+
+  // בדוק כפילות מספר
+  const dupNum = soldiers.find(s =>
+    s.id !== editingId && parseInt(s.soldier_number) === numVal
+  );
+  if (dupNum && numVal) {
+    const ok = await confirmDialog(
+      `מזהה #${numVal} כבר קיים (${dupNum.first_name} ${dupNum.last_name}). להמשיך?`,
+      'המשך בכל זאת', 'warning'
+    );
+    if (!ok) return;
+  }
+
+  const data = {
+    soldier_number:         numVal || null,
+    first_name:             first,
+    last_name:              last,
+    group_id:               document.getElementById('fldGroup').value || null,
+    roles:                  selRoles,
+    min_rest_minutes:       minRest,
+    absence_reason:         document.getElementById('fldReason').value || null,
+    return_to_service_time: returnVal ? fromLocalInputValue(returnVal) : null,
+    is_active:              editingId
+      ? (soldiers.find(s => s.id === editingId)?.is_active ?? true)
+      : true
+  };
+
+  try {
+    if (editingId) {
+      await updateSoldier(editingId, data);
+      showToast('✓ חייל עודכן', 'success');
+    } else {
+      await addSoldier(data);
+      showToast('✓ חייל נוסף', 'success');
+    }
+    closeModal();
+    await loadAll();
+  } catch (err) {
+    showToast('שגיאה: ' + err.message, 'error');
+  }
+};
+
+window.deleteSoldierUI = async function(id) {
+  const s = soldiers.find(x => x.id === id);
+  if (!await confirmDialog(`למחוק את ${s?.first_name} ${s?.last_name}?`, 'מחק')) return;
+  try {
+    await deleteSoldier(id);
+    showToast('✓ חייל נמחק', 'success');
+    closeDetail();
+    await loadAll();
+  } catch (err) {
+    showToast('שגיאה: ' + err.message, 'error');
+  }
+};
+
+// סגירה בקליק חיצוני
+['soldierModal', 'detailModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+});
+
+loadAll();
+</script>
+</body>
+</html>
