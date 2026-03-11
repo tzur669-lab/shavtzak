@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- רקע עגול כהה -->
+  <rect width="512" height="512" rx="110" fill="#1e293b"/>
+
+  <!-- מגן ירוק צבאי -->
+  <path d="M256 80
+    L380 130
+    L380 270
+    Q380 370 256 430
+    Q132 370 132 270
+    L132 130
+    Z"
+    fill="#166534" stroke="#22c55e" stroke-width="8"/>
+
+  <!-- פסים על המגן -->
+  <path d="M256 80 L380 130 L380 270 Q380 370 256 430"
+    fill="#14532d"/>
+
+  <!-- כוכב לבן במרכז -->
+  <polygon
+    points="256,155 270,200 316,200 279,226 293,272 256,246 219,272 233,226 196,200 242,200"
+    fill="#ffffff" opacity="0.95"/>
+
+  <!-- שם האפ בתחתית -->
+  <text x="256" y="490"
+    font-family="Arial, sans-serif"
+    font-size="52" font-weight="900"
+    fill="#22c55e"
+    text-anchor="middle"
+    letter-spacing="2">שבצ"ק</text>
+</svg>
