@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>שבצ"ק - לוח שמירות</title>
+  <link rel="icon" href="icons/icon-96.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.rtl.min.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    .shift-row {
+      display: flex; align-items: center;
+      padding: 0.5rem 0.75rem;
+      gap: 0.45rem; font-size: 0.82rem;
+      transition: background var(--transition);
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+    }
+    .shift-row:last-child { border-bottom: none; }
+    .shift-row:hover { background: var(--bg-hover); }
+    .shift-row.row-active { background: #f0fdf4; }
+    .shift-row.row-forced { background: #fef2f2; }
+    .shift-row.row-empty  { background: var(--bg-row-alt); opacity: 0.78; }
+    .shift-row.row-locked { background: #fffbeb; }
+    .shift-row.row-hl     { background: #eff6ff; box-shadow: inset 3px 0 0 var(--accent); }
+    [data-theme="dark"] .shift-row.row-active { background: #0d2a14; }
+    [data-theme="dark"] .shift-row.row-forced { background: #2a0d0d; }
+    [data-theme="dark"] .shift-row.row-locked { background: #2a1f00; }
+    [data-theme="dark"] .shift-row.row-hl     { background: #0d2444; }
+
+    .s-bar    { width: 3px; flex-shrink: 0; align-self: stretch; border-radius: 2px; min-height: 20px; }
+    .s-time   { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 0.76rem; white-space: nowrap; flex-shrink: 0; }
+    .s-post   { color: var(--text-muted); font-size: 0.76rem; flex-shrink: 0; max-width: 65px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .s-name   { font-weight: 600; flex: 1; display: flex; align-items: center; gap: 0.3rem; min-width: 0; }
+    .s-acts   { display: flex; gap: 0.25rem; flex-shrink: 0; }
+    .gdot     { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+
+    /* כרטיס חייל */
+    .sol-card {
+      background: var(--bg-card);
+      border: 1.5px solid var(--accent);
+      border-radius: var(--radius-lg);
+      padding: 0.85rem;
+      margin-bottom: 0.6rem;
+      animation: slideDown 0.2s ease;
+    }
+    @keyframes slideDown { from { opacity:0; transform:translateY(-6px) } to { opacity:1; transform:none } }
+    .sol-shift { display:flex; justify-content:space-between; align-items:center; padding:0.28rem 0; border-bottom:1px solid var(--border); font-size:0.8rem; }
+    .sol-shift:last-child { border-bottom:none; }
+    .rest-gap  { display:flex; align-items:center; gap:0.3rem; font-size:0.72rem; padding:0.2rem 0.5rem; }
+
+    .day-div {
+      background: var(--accent-light); color: var(--accent-text);
+      font-weight: 700; font-size: 0.74rem;
+      padding: 0.28rem 0.7rem; border-radius: var(--radius-md);
+      margin: 0.55rem 0 0; display: flex; justify-content: space-between;
+    }
+    .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:0.4rem; margin-bottom:0.55rem; }
+
+    .del-item { display:flex; align-items:center; gap:0.5rem; padding:0.35rem 0.45rem; border-radius:var(--radius-md); font-size:0.79rem; cursor:pointer; transition:background var(--transition); }
+    .del-item:hover { background:var(--bg-hover); }
+    .del-item input[type=checkbox] { accent-color:var(--accent); width:15px; height:15px; flex-shrink:0; }
+  </style>
+</head>
+<body class="page-enter">
+
+<header class="page-header">
+  <div>
+    <div class="page-title">📋 לוח שמירות</div>
+    <div class="page-subtitle" id="headerSub">טוען...</div>
+  </div>
+  <div style="display:flex;gap:0.3rem;">
+    <button class="btn btn-ghost btn-sm" onclick="shareBoard()" title="שתף">📤</button>
+    <button class="btn btn-ghost btn-sm" onclick="openDeleteModal()" title="מחק משמרות">🗑️</button>
+    <button class="btn btn-ghost btn-sm" id="themeBtn" onclick="toggleThemeUI()">🌙</button>
+  </div>
+</header>
+
+<div class="page-wrap">
+
+  <!-- שעון -->
+  <div style="text-align:center;padding:0.35rem 0 0.2rem;">
+    <div style="font-size:1.85rem;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-1px;" id="clockTime">--:--</div>
+    <div style="font-size:0.76rem;color:var(--text-muted);" id="clockDate">—</div>
+  </div>
+
+  <!-- progress -->
+  <div style="margin-bottom:0.55rem;">
+    <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-muted);margin-bottom:3px;">
+      <span>אכלוס</span><span id="fillPct">—</span>
+    </div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" id="fillBar" style="width:0%;"></div></div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-value" id="s1">—</div><div class="stat-label">סה"כ</div></div>
+    <div class="stat-card"><div class="stat-value" id="s2" style="color:var(--green)">—</div><div class="stat-label">משובצות</div></div>
+    <div class="stat-card"><div class="stat-value" id="s3" style="color:var(--red)">—</div><div class="stat-label">כפויות</div></div>
+    <div class="stat-card"><div class="stat-value" id="s4" style="color:var(--accent)">—</div><div class="stat-label">עכשיו</div></div>
+  </div>
+
+  <div class="search-bar" style="margin-bottom:0.4rem;">
+    <span>🔍</span>
+    <input type="text" id="searchInput" placeholder="חפש חייל..." oninput="applyFilter()">
+  </div>
+  <div class="filter-chips" style="margin-bottom:0.55rem;">
+    <button class="chip active" onclick="setFilter('all',this)">הכל</button>
+    <button class="chip" onclick="setFilter('now',this)">עכשיו</button>
+    <button class="chip" onclick="setFilter('empty',this)">ריקים</button>
+    <button class="chip" onclick="setFilter('forced',this)">כפויים</button>
+  </div>
+
+  <div id="soldierCard" style="display:none;"></div>
+  <div id="boardWrap"><div class="empty-state"><div class="spinner" style="margin:auto;"></div></div></div>
+</div>
+
+<!-- מחיקה -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🗑️ מחיקת משמרות</div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.75rem;">
+      <button class="btn btn-danger btn-full" onclick="deleteAll()">☢️ מחק את כל המשמרות</button>
+      <div class="card" style="padding:0.7rem;margin:0;">
+        <div style="font-weight:700;font-size:0.84rem;margin-bottom:0.45rem;">🗓 לפי טווח זמן</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.45rem;margin-bottom:0.45rem;">
+          <div><label class="form-label">התחלה</label><input type="datetime-local" id="delStart" class="form-input"></div>
+          <div><label class="form-label">סיום</label><input type="datetime-local" id="delEnd" class="form-input"></div>
+        </div>
+        <button class="btn btn-danger btn-sm btn-full" onclick="deleteByRange()">מחק טווח</button>
+      </div>
+      <div class="card" style="padding:0.7rem;margin:0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.45rem;">
+          <div style="font-weight:700;font-size:0.84rem;">☑️ בחר ידנית</div>
+          <div style="display:flex;gap:0.3rem;">
+            <button class="btn btn-ghost btn-sm" onclick="selAll(true)">הכל</button>
+            <button class="btn btn-ghost btn-sm" onclick="selAll(false)">נקה</button>
+          </div>
+        </div>
+        <div id="shiftCheckList" style="max-height:190px;overflow-y:auto;"></div>
+        <button class="btn btn-danger btn-sm btn-full" style="margin-top:0.45rem;" onclick="deleteSelected()">מחק נבחרים</button>
+      </div>
+    </div>
+    <button class="btn btn-ghost btn-full" onclick="closeDeleteModal()">סגור</button>
+  </div>
+</div>
+
+<!-- חירום -->
+<div class="modal-overlay" id="emergencyModal">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🚨 שיבוץ חירום</div>
+    <div id="emergencyContent"></div>
+    <button class="btn btn-ghost btn-full" style="margin-top:0.75rem;" onclick="closeEmergency()">סגור</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script type="module">
+import {
+  subscribeToBoard, getSettings, getGroups,
+  updateShift, toggleShiftLock,
+  deleteShiftsInRange, deleteShift, deleteAllShifts
+} from './js/firebase.js';
+import { findEmergencySoldier } from './js/logic.js';
+import {
+  initPage, showToast, confirmDialog, toggleTheme,
+  formatTime, formatDate, formatDayName, formatMinutes,
+  toLocalInputValue, fromLocalInputValue, restBadge
+} from './js/ui.js';
+
+initPage();
+
+let allShifts=[], allSoldiers=[], allPosts=[], allGroups=[];
+let settings={}, filterMode='all', searchQ='', activeSolId=null;
+
+// שעון
+(function(){
+  const tick=()=>{
+    const n=new Date();
+    document.getElementById('clockTime').textContent=n.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    document.getElementById('clockDate').textContent=n.toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  };
+  tick(); setInterval(tick,1000);
+})();
+
+settings  = await getSettings();
+allGroups = await getGroups();
+
+const unsub = subscribeToBoard(({shifts,soldiers,posts})=>{
+  allShifts=shifts; allSoldiers=soldiers; allPosts=posts;
+  render();
+});
+window.addEventListener('unload',()=>unsub?.());
+
+window.toggleThemeUI=()=>{
+  const t=toggleTheme();
+  document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙';
+};
+window.setFilter=(f,btn)=>{
+  filterMode=f;
+  document.querySelectorAll('.filter-chips .chip').forEach(c=>c.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+};
+window.applyFilter=()=>{
+  searchQ=document.getElementById('searchInput').value.trim().toLowerCase();
+  render();
+};
+window.renderBoardProxy=()=>render();
+
+function render(){
+  const now=new Date().toISOString();
+  const minRest=settings.min_rest_minutes??240;
+  const solMap={},postMap={},groupMap={};
+  allSoldiers.forEach(s=>{solMap[s.id]=s;});
+  allPosts.forEach(p=>{postMap[p.id]=p;});
+  allGroups.forEach(g=>{groupMap[g.id]=g;});
+
+  // stats
+  const total=allShifts.length;
+  const asgn =allShifts.filter(s=>s.soldier_id).length;
+  const frc  =allShifts.filter(s=>s.is_forced).length;
+  const actv =allShifts.filter(s=>s.soldier_id&&s.start_time<=now&&s.end_time>now).length;
+  const pct  =total>0?Math.round((asgn/total)*100):0;
+  document.getElementById('s1').textContent=total;
+  document.getElementById('s2').textContent=asgn;
+  document.getElementById('s3').textContent=frc;
+  document.getElementById('s4').textContent=actv;
+  document.getElementById('fillPct').textContent=pct+'%';
+  const fb=document.getElementById('fillBar');
+  fb.style.width=pct+'%';
+  fb.style.background=pct>=90?'var(--green)':pct>=60?'var(--accent)':'var(--yellow)';
+  document.getElementById('headerSub').textContent=`${asgn}/${total} מאוישות`;
+
+  renderSolCard(solMap,postMap,groupMap,minRest);
+
+  // filter
+  let list=[...allShifts];
+  if(filterMode==='now')    list=list.filter(s=>s.start_time<=now&&s.end_time>now);
+  if(filterMode==='empty')  list=list.filter(s=>!s.soldier_id);
+  if(filterMode==='forced') list=list.filter(s=>s.is_forced);
+  if(searchQ) list=list.filter(s=>{
+    const sol=s.soldier_id?solMap[s.soldier_id]:null;
+    return sol?`${sol.first_name} ${sol.last_name}`.toLowerCase().includes(searchQ):false;
+  });
+  list.sort((a,b)=>a.start_time.localeCompare(b.start_time));
+
+  if(list.length===0){
+    document.getElementById('boardWrap').innerHTML=`<div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <div class="empty-title">אין משמרות${searchQ||filterMode!=='all'?' תואמות':''}</div>
+      <div class="empty-desc">הפעל שיבוץ בדף השיבוץ</div></div>`;
+    return;
+  }
+
+  // group by day
+  const byDay={};
+  list.forEach(s=>{const d=s.start_time.substring(0,10);if(!byDay[d])byDay[d]=[];byDay[d].push(s);});
+
+  let html='';
+  Object.entries(byDay).forEach(([day,ds])=>{
+    html+=`<div class="day-div">
+      <span>📅 ${formatDayName(day+'T12:00')} — ${formatDate(day+'T12:00')}</span>
+      <span style="font-weight:400;">${ds.filter(s=>s.soldier_id).length}/${ds.length}</span>
+    </div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:0.2rem;overflow:hidden;">`;
+
+    ds.forEach(s=>{
+      const sol=s.soldier_id?solMap[s.soldier_id]:null;
+      const post=postMap[s.post_id];
+      const grp=sol?.group_id?groupMap[sol.group_id]:null;
+      const pc=post?.post_color||'#9ca3af';
+      const isAct=s.start_time<=now&&s.end_time>now;
+      const isHL=sol&&activeSolId===sol.id;
+      let rc='';
+      if(isHL)rc='row-hl';
+      else if(s.is_locked&&sol)rc='row-locked';
+      else if(s.is_forced)rc='row-forced';
+      else if(isAct&&sol)rc='row-active';
+      else if(!sol)rc='row-empty';
+
+      const cd=isAct&&sol?`<span style="font-size:0.67rem;color:var(--text-muted);">(${formatMinutes(Math.round((new Date(s.end_time)-new Date())/60000))})</span>`:'';
+
+      html+=`<div class="shift-row ${rc}" onclick="onRowClick('${s.id}','${sol?.id||''}')">
+        <div class="s-bar" style="background:${pc};"></div>
+        <div class="s-time">${formatTime(s.start_time)}–${formatTime(s.end_time)}</div>
+        <div class="s-post">${post?.name||'—'}</div>
+        <div class="s-name">
+          ${sol?`${grp?`<span class="gdot" style="background:${grp.color_hex||'#9ca3af'};" title="${grp.name}"></span>`:''}
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${sol.first_name} ${sol.last_name}</span>
+            ${s.is_locked?'🔒':''}${s.is_forced?' ⚡':''}${cd}`
+          :`<span style="color:var(--text-muted);">—</span>`}
+        </div>
+        ${restBadge(s.rest_before_minutes,minRest,s.is_forced)}
+        <div class="s-acts" onclick="event.stopPropagation();">
+          ${!sol
+            ?`<button class="btn btn-danger btn-sm" style="font-size:0.68rem;padding:2px 6px;"
+                onclick="openEmergency('${s.post_id}','${s.requirement_id||''}','${s.id}')">🚨</button>`
+            :`<button class="btn btn-ghost btn-sm" onclick="toggleLock('${s.id}',${!s.is_locked})">${s.is_locked?'🔓':'🔒'}</button>`}
+        </div>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  document.getElementById('boardWrap').innerHTML=html;
+}
+
+// ── כרטיס חייל ───────────────────────────────
+function renderSolCard(solMap,postMap,groupMap,minRest){
+  const card=document.getElementById('soldierCard');
+  if(!activeSolId){card.style.display='none';return;}
+  const sol=solMap[activeSolId];
+  if(!sol){card.style.display='none';activeSolId=null;return;}
+  const grp=sol.group_id?groupMap[sol.group_id]:null;
+
+  const myShifts=allShifts
+    .filter(s=>s.soldier_id===activeSolId)
+    .sort((a,b)=>a.start_time.localeCompare(b.start_time));
+
+  const now=new Date().toISOString();
+  let rows='';
+  myShifts.forEach((s,i)=>{
+    const post=postMap[s.post_id];
+    const pc=post?.post_color||'#9ca3af';
+    const dur=Math.round((new Date(s.end_time)-new Date(s.start_time))/60000);
+    const isAct=s.start_time<=now&&s.end_time>now;
+
+    if(i>0){
+      const gap=Math.round((new Date(s.start_time)-new Date(myShifts[i-1].end_time))/60000);
+      const ok=gap>=minRest;
+      rows+=`<div class="rest-gap" style="color:${ok?'var(--green)':'var(--red)'};">
+        ${ok?'😴':'⚠️'} מנוחה: ${formatMinutes(gap)}${!ok?' <strong>(קצר מדי!)</strong>':''}
+      </div>`;
+    }
+    rows+=`<div class="sol-shift" style="${isAct?'color:var(--green);font-weight:600;':''}">
+      <div style="display:flex;align-items:center;gap:0.35rem;">
+        <span style="width:3px;height:14px;border-radius:2px;background:${pc};display:inline-block;"></span>
+        ${post?.name||'—'}
+        ${isAct?'<span class="badge badge-green" style="font-size:0.62rem;">עכשיו</span>':''}
+      </div>
+      <div style="font-size:0.77rem;color:var(--text-muted);display:flex;align-items:center;gap:0.4rem;">
+        <span>${formatDate(s.start_time)} ${formatTime(s.start_time)}–${formatTime(s.end_time)}</span>
+        <span style="background:var(--bg-row-alt);padding:1px 5px;border-radius:8px;">${formatMinutes(dur)}</span>
+      </div>
+    </div>`;
+  });
+
+  if(!rows) rows='<div style="color:var(--text-muted);font-size:0.8rem;">אין משמרות</div>';
+
+  const totMins=myShifts.reduce((s,x)=>s+Math.round((new Date(x.end_time)-new Date(x.start_time))/60000),0);
+
+  card.style.display='block';
+  card.innerHTML=`<div class="sol-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.55rem;">
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <div style="width:34px;height:34px;border-radius:50%;background:${grp?.color_hex||'#9ca3af'};
+          display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:0.88rem;">
+          ${sol.first_name[0]}${sol.last_name[0]}
+        </div>
+        <div>
+          <div style="font-weight:700;font-size:0.9rem;">${sol.first_name} ${sol.last_name}</div>
+          <div style="font-size:0.7rem;color:${grp?.color_hex||'var(--text-muted)'};">${grp?.name||'ללא מחלקה'} · #${sol.soldier_number||'?'}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.4rem;">
+        <div style="text-align:left;font-size:0.72rem;color:var(--text-muted);">
+          ${myShifts.length} משמרות<br>${formatMinutes(totMins)}
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="activeSolId=null;renderBoardProxy()">✕</button>
+      </div>
+    </div>
+    <div style="max-height:210px;overflow-y:auto;">${rows}</div>
+  </div>`;
+}
+
+window.onRowClick=(shiftId,soldierId)=>{
+  if(!soldierId)return;
+  activeSolId=activeSolId===soldierId?null:soldierId;
+  render();
+};
+window.toggleLock=async(id,locked)=>{
+  try{await toggleShiftLock(id,locked);}
+  catch(e){showToast('שגיאה','error');}
+};
+
+// חירום
+window.openEmergency=async(postId,reqId,shiftId)=>{
+  document.getElementById('emergencyContent').innerHTML='<div class="spinner" style="margin:1rem auto;"></div>';
+  document.getElementById('emergencyModal').classList.add('open');
+  try{
+    const cands=await findEmergencySoldier(postId,reqId);
+    const gm={};allGroups.forEach(g=>{gm[g.id]=g;});
+    if(!cands.length){document.getElementById('emergencyContent').innerHTML='<div style="text-align:center;padding:1rem;color:var(--text-muted);">אין חיילים זמינים</div>';return;}
+    document.getElementById('emergencyContent').innerHTML=cands.map(c=>{
+      const g=c.group_id?gm[c.group_id]:null;
+      return`<div style="display:flex;align-items:center;justify-content:space-between;padding:0.45rem;background:var(--bg-row);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:0.35rem;">
+        <div>
+          <div style="font-weight:600;font-size:0.87rem;display:flex;align-items:center;gap:0.3rem;">
+            ${g?`<span class="gdot" style="background:${g.color_hex||'#9ca3af'};"></span>`:''}
+            ${c.first_name} ${c.last_name}
+            ${!c.isLegal?'<span class="badge badge-red" style="font-size:0.62rem;">מנוחה קצרה</span>':''}
+          </div>
+          <div style="font-size:0.7rem;color:var(--text-muted);">מנוחה: ${c.restMins===999999?'לא שמר':formatMinutes(c.restMins)}</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="assignEmergency('${shiftId}','${c.id}')">שבץ</button>
+      </div>`;
+    }).join('');
+  }catch(e){document.getElementById('emergencyContent').innerHTML=`<div style="color:var(--red);">${e.message}</div>`;}
+};
+window.assignEmergency=async(shiftId,solId)=>{
+  try{await updateShift(shiftId,{soldier_id:solId,is_forced:false,rest_before_minutes:null,updated_at:new Date().toISOString()});showToast('✓ שובץ','success');closeEmergency();}
+  catch(e){showToast('שגיאה','error');}
+};
+window.closeEmergency=()=>document.getElementById('emergencyModal').classList.remove('open');
+
+// מחיקה
+window.openDeleteModal=()=>{
+  const sorted=[...allShifts].sort((a,b)=>a.start_time.localeCompare(b.start_time));
+  const sm={},pm={};
+  allSoldiers.forEach(s=>{sm[s.id]=s;});allPosts.forEach(p=>{pm[p.id]=p;});
+  document.getElementById('shiftCheckList').innerHTML=sorted.length===0
+    ?'<div style="color:var(--text-muted);font-size:0.8rem;">אין משמרות</div>'
+    :sorted.map(s=>{
+      const sol=s.soldier_id?sm[s.soldier_id]:null,post=pm[s.post_id];
+      return`<label class="del-item"><input type="checkbox" value="${s.id}">
+        <span style="flex:1;font-size:0.77rem;">
+          <span style="color:var(--text-muted);">${formatDate(s.start_time)} ${formatTime(s.start_time)}–${formatTime(s.end_time)}</span>
+          · ${post?.name||'—'}
+          ${sol?`· <strong>${sol.first_name} ${sol.last_name}</strong>`:'· <span style="color:var(--text-muted);">ריק</span>'}
+        </span></label>`;
+    }).join('');
+  const now=new Date();now.setMinutes(0,0,0);
+  document.getElementById('delStart').value=toLocalInputValue(now.toISOString());
+  document.getElementById('delEnd').value=toLocalInputValue(new Date(now.getTime()+48*3600000).toISOString());
+  document.getElementById('deleteModal').classList.add('open');
+};
+window.closeDeleteModal=()=>document.getElementById('deleteModal').classList.remove('open');
+window.selAll=v=>document.querySelectorAll('#shiftCheckList input').forEach(c=>{c.checked=v;});
+window.deleteAll=async()=>{
+  if(!await confirmDialog('למחוק את כל המשמרות?','מחק הכל'))return;
+  try{await deleteAllShifts();showToast('✓ נמחקו כל המשמרות','success');closeDeleteModal();}
+  catch(e){showToast('שגיאה','error');}
+};
+window.deleteByRange=async()=>{
+  const sv=document.getElementById('delStart').value,ev=document.getElementById('delEnd').value;
+  if(!sv||!ev){showToast('נא לבחור טווח','warning');return;}
+  if(!await confirmDialog('למחוק משמרות בטווח?','מחק'))return;
+  try{const n=await deleteShiftsInRange(fromLocalInputValue(sv),fromLocalInputValue(ev));showToast(`✓ נמחקו ${n} משמרות`,'success');closeDeleteModal();}
+  catch(e){showToast('שגיאה','error');}
+};
+window.deleteSelected=async()=>{
+  const ids=[...document.querySelectorAll('#shiftCheckList input:checked')].map(c=>c.value);
+  if(!ids.length){showToast('לא נבחרו משמרות','warning');return;}
+  if(!await confirmDialog(`למחוק ${ids.length} משמרות?`,'מחק'))return;
+  try{await Promise.all(ids.map(id=>deleteShift(id)));showToast(`✓ נמחקו ${ids.length}`,'success');closeDeleteModal();}
+  catch(e){showToast('שגיאה','error');}
+};
+
+// שיתוף לוח
+window.shareBoard=async()=>{
+  showToast('מכין תמונה...','info');
+  try{
+    const el=document.getElementById('boardWrap');
+    const canvas=await html2canvas(el,{
+      backgroundColor:getComputedStyle(document.documentElement).getPropertyValue('--bg-main').trim()||'#f8fafc',
+      scale:2,useCORS:true,logging:false
+    });
+    const date=new Date().toLocaleDateString('he-IL').replace(/\//g,'-');
+    const fname=`shavtzak-${date}.png`;
+    if(navigator.share&&navigator.canShare){
+      canvas.toBlob(async blob=>{
+        if(!blob){showToast('שגיאה','error');return;}
+        const file=new File([blob],fname,{type:'image/png'});
+        try{await navigator.share({files:[file],title:'לוח שמירות שבצ"ק'});showToast('✓ שותף','success');}
+        catch(e){if(e.name!=='AbortError')showToast('שגיאה בשיתוף','error');}
+      },'image/png');
+    }else{
+      const a=document.createElement('a');a.download=fname;a.href=canvas.toDataURL('image/png');a.click();
+      showToast('✓ תמונה הורדה','success');
+    }
+  }catch(e){showToast('שגיאה: '+e.message,'error');}
+};
+
+['deleteModal','emergencyModal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
+});
+</script>
+</body>
+</html>

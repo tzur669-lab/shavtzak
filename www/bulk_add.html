@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>שבצ"ק - הוספה המונית</title>
+  <link rel="icon" href="icons/icon-96.png" type="image/png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.rtl.min.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    .preview-row {
+      display: grid;
+      grid-template-columns: 40px 1fr 1fr 1fr;
+      gap: 0.4rem;
+      align-items: center;
+      padding: 0.4rem 0.5rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+    .preview-row:last-child { border-bottom: none; }
+    .preview-row.header {
+      background: var(--bg-row-alt);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    .preview-row input,
+    .preview-row select {
+      height: 30px;
+      font-size: 0.8rem;
+      padding: 0 0.4rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg-input);
+      color: var(--text-main);
+      width: 100%;
+    }
+    .preview-row input:focus,
+    .preview-row select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .row-num {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.78rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body class="page-enter">
+
+<header class="page-header">
+  <div>
+    <div class="page-title">👥 הוספה המונית</div>
+    <div class="page-subtitle">ייבוא רשימת חיילים</div>
+  </div>
+  <a href="soldiers.html" class="btn btn-ghost btn-sm">← חזור</a>
+</header>
+
+<div class="page-wrap">
+
+  <!-- שלב 1: הכנסת שמות -->
+  <div id="step1">
+    <div class="info-box" style="margin-bottom:0.75rem;">
+      <strong>פורמט:</strong> שורה לכל חייל — <code>שם פרטי שם משפחה</code><br>
+      דוגמה:<br>
+      <code>ישראל ישראלי</code><br>
+      <code>אלי כהן</code><br>
+      <code>דוד לוי</code><br>
+      <span style="color:var(--text-muted);">מזהה חייל יינתן אוטומטית. מחלקה תוגדר בשלב הבא.</span>
+    </div>
+
+    <div class="card" style="margin-bottom:0.75rem;">
+      <div class="form-group">
+        <label class="form-label">הדבק רשימת שמות</label>
+        <textarea id="bulkInput" class="form-textarea" rows="9"
+          placeholder="ישראל ישראלי&#10;אלי כהן&#10;דוד לוי&#10;רון אברהם"></textarea>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="goToStep2()">המשך ← הגדרת מחלקות</button>
+    </div>
+  </div>
+
+  <!-- שלב 2: עריכה + מחלקות -->
+  <div id="step2" style="display:none;">
+    <div class="card" style="margin-bottom:0.75rem;padding:0;">
+      <!-- כותרת טבלה -->
+      <div class="preview-row header">
+        <div>#</div>
+        <div>שם פרטי</div>
+        <div>שם משפחה</div>
+        <div>מחלקה</div>
+      </div>
+      <div id="previewRows"></div>
+    </div>
+
+    <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
+      <button class="btn btn-secondary btn-sm" onclick="backToStep1()">← חזור</button>
+      <button class="btn btn-primary" style="flex:1;" id="importBtn" onclick="doImport()">⬆️ ייבא חיילים</button>
+    </div>
+  </div>
+
+  <!-- תוצאות -->
+  <div id="resultWrap" style="display:none;"></div>
+
+</div>
+
+<script type="module">
+import { getGroups, getNextSoldierNumber, addSoldier } from './js/firebase.js';
+import { initPage, showToast } from './js/ui.js';
+
+initPage();
+
+let groups   = [];
+let startNum = 1;
+let rows     = []; // { first, last, groupId }
+
+async function init() {
+  [groups, startNum] = await Promise.all([getGroups(), getNextSoldierNumber()]);
+}
+init();
+
+// ── שלב 1 → 2 ────────────────────────────────
+window.goToStep2 = async function() {
+  const lines = document.getElementById('bulkInput').value
+    .split('\n').map(l => l.trim()).filter(Boolean);
+
+  if (lines.length === 0) { showToast('נא להזין שמות', 'warning'); return; }
+
+  // רענן מספר התחלה
+  startNum = await getNextSoldierNumber();
+
+  rows = lines.map(line => {
+    const parts = line.trim().split(/\s+/);
+    return {
+      first:   parts[0] || '',
+      last:    parts.slice(1).join(' ') || '',
+      groupId: ''
+    };
+  });
+
+  renderPreview();
+  document.getElementById('step1').style.display = 'none';
+  document.getElementById('step2').style.display = 'block';
+};
+
+window.backToStep1 = () => {
+  document.getElementById('step2').style.display = 'none';
+  document.getElementById('step1').style.display = 'block';
+};
+
+// ── רינדור טבלת עריכה ────────────────────────
+function renderPreview() {
+  const groupOptions = groups.map(g =>
+    `<option value="${g.id}">${g.name}</option>`
+  ).join('');
+
+  document.getElementById('previewRows').innerHTML = rows.map((r, i) => `
+    <div class="preview-row" id="prow-${i}">
+      <div class="row-num">#${startNum + i}</div>
+      <input type="text" value="${r.first}" placeholder="שם פרטי"
+        onchange="updateRow(${i},'first',this.value)"
+        oninput="updateRow(${i},'first',this.value)">
+      <input type="text" value="${r.last}" placeholder="שם משפחה"
+        onchange="updateRow(${i},'last',this.value)"
+        oninput="updateRow(${i},'last',this.value)">
+      <select onchange="updateRow(${i},'groupId',this.value)">
+        <option value="">— ללא —</option>
+        ${groupOptions}
+        ${r.groupId ? '' : ''}
+      </select>
+    </div>`).join('');
+
+  // שחזר ערכי מחלקה שנבחרו
+  rows.forEach((r, i) => {
+    if (r.groupId) {
+      const sel = document.querySelector(`#prow-${i} select`);
+      if (sel) sel.value = r.groupId;
+    }
+  });
+}
+
+window.updateRow = (i, field, val) => {
+  if (rows[i]) rows[i][field] = val;
+};
+
+// ── ייבוא ─────────────────────────────────────
+window.doImport = async function() {
+  // וידוא
+  const invalid = rows.filter(r => !r.first.trim());
+  if (invalid.length > 0) {
+    showToast(`יש ${invalid.length} שורות ללא שם פרטי`, 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('importBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> מייבא...';
+
+  // קרא ערכים עדכניים מה-DOM לפני הייבוא
+  rows.forEach((r, i) => {
+    const row = document.getElementById(`prow-${i}`);
+    if (!row) return;
+    const inputs = row.querySelectorAll('input');
+    const sel    = row.querySelector('select');
+    if (inputs[0]) r.first   = inputs[0].value.trim();
+    if (inputs[1]) r.last    = inputs[1].value.trim();
+    if (sel)       r.groupId = sel.value;
+  });
+
+  let added = 0;
+  const errors = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r.first) continue;
+    try {
+      await addSoldier({
+        soldier_number:         startNum + i,
+        first_name:             r.first,
+        last_name:              r.last || '',
+        group_id:               r.groupId || null,
+        is_active:              true,
+        roles:                  [],
+        min_rest_minutes:       null,
+        absence_reason:         null,
+        return_to_service_time: null
+      });
+      added++;
+    } catch (err) {
+      errors.push({ name: `${r.first} ${r.last}`, err: err.message });
+    }
+  }
+
+  // הצג תוצאות
+  document.getElementById('step2').style.display = 'none';
+  document.getElementById('resultWrap').style.display = 'block';
+  document.getElementById('resultWrap').innerHTML = `
+    <div class="card">
+      <div class="card-title">✅ ייבוא הושלם</div>
+      <div style="display:flex;flex-direction:column;gap:0.4rem;">
+        <div style="background:var(--green-light);color:var(--green);
+          padding:0.5rem 0.75rem;border-radius:var(--radius-md);
+          display:flex;justify-content:space-between;">
+          <span>נוספו בהצלחה</span><strong>${added}</strong>
+        </div>
+        ${errors.length > 0 ? `
+          <div style="background:var(--red-light);color:var(--red);
+            padding:0.5rem 0.75rem;border-radius:var(--radius-md);
+            display:flex;justify-content:space-between;">
+            <span>שגיאות</span><strong>${errors.length}</strong>
+          </div>
+          ${errors.map(e => `<div style="font-size:0.75rem;color:var(--text-muted);">✗ ${e.name}</div>`).join('')}` : ''}
+      </div>
+      <div style="margin-top:0.6rem;font-size:0.78rem;color:var(--text-muted);">
+        מזהים: #${startNum} – #${startNum + added - 1}
+      </div>
+      <div style="display:flex;gap:0.5rem;margin-top:0.75rem;">
+        <a href="soldiers.html" class="btn btn-primary" style="flex:1;">← רשימת חיילים</a>
+        <button class="btn btn-secondary" onclick="resetForm()">+ הוסף עוד</button>
+      </div>
+    </div>`;
+
+  showToast(`✓ נוספו ${added} חיילים`, 'success');
+  btn.disabled = false;
+  btn.innerHTML = '⬆️ ייבא חיילים';
+};
+
+window.resetForm = () => {
+  document.getElementById('bulkInput').value = '';
+  document.getElementById('resultWrap').style.display = 'none';
+  document.getElementById('step1').style.display = 'block';
+  rows = [];
+  init();
+};
+</script>
+</body>
+</html>
